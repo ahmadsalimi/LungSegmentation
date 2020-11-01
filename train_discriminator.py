@@ -21,7 +21,7 @@ if __name__ == "__main__":
             with redirect_stdout(handle):
                 try:
                     device = "cuda" if torch.cuda.device_count > 0 else "cpu"
-                    print(f"device is {device}")
+                    print(f"device is {device}", flush=True)
                     discriminator = MaskDiscriminator().to(device)
                     optimizer = torch.optim.Adam(discriminator.parameters(), lr=1e-4)
 
@@ -57,4 +57,4 @@ if __name__ == "__main__":
                         }, path.join(model_store_directory, f"history"))
 
                 except Exception as e:
-                    print(e)
+                    print(e, flush=True)
