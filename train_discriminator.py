@@ -6,6 +6,8 @@ import logging
 import torch
 from os import path
 from time import time
+import traceback 
+
 
 
 if __name__ == "__main__":
@@ -69,4 +71,4 @@ if __name__ == "__main__":
                         print('---------------------------------------')
 
                 except Exception as e:
-                    print(e, flush=True)
+                    traceback.print_exc(file=handle)
