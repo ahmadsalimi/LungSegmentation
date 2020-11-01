@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from math import nan
 
 
-def train_discriminator(model, optimizer, root_path, batch_size):
+def train_discriminator(model, optimizer, root_path, batch_size, device):
     # BATCH SIZE IS 1
     epoch_loss = 0
     all_positives = 0
@@ -20,8 +20,8 @@ def train_discriminator(model, optimizer, root_path, batch_size):
     for iter, (b_X, b_y) in progress:
         # b_X   B   2   H   64  64
         # b_y   B
-        images = torch.tensor(b_X).cuda().float()
-        target = torch.tensor(b_y).cuda().float()
+        images = torch.tensor(b_X).to(device).float()
+        target = torch.tensor(b_y).to(device).float()
 
         prediction = model(images)
 
@@ -47,19 +47,19 @@ def train_discriminator(model, optimizer, root_path, batch_size):
             TN=f"{true_negatives * 100. / all_negatives if all_negatives != 0 else nan :.2f}",
         )
     
-    if iter - last_optimized != batch_size:
+    if iter - last_optimized != 0:
         optimizer.step()
         optimizer.zero_grad()
 
     epoch_loss /= iter + 1
-    true_positives /= all_positives * 100.
-    true_negatives /= all_negatives * 100.
+    true_positives *= 100. / all_positives
+    true_negatives *= 100. / all_negatives
 
     progress.close()
 
     return epoch_loss, true_positives, true_negatives
 
-def evaluate_discriminator(model, root_path):
+def evaluate_discriminator(model, root_path, device):
     # BATCH SIZE IS 1
     epoch_loss = 0
     all_positives = 0
@@ -71,8 +71,8 @@ def evaluate_discriminator(model, root_path):
     with torch.no_grad():
         model.eval()
         for iter, (b_X, b_y) in progress:
-            images = torch.tensor(b_X).cuda().float()
-            target = torch.tensor(b_y).cuda().float()
+            images = torch.tensor(b_X).to(device).float()
+            target = torch.tensor(b_y).to(device).float()
 
             prediction = model(images)
 
@@ -92,8 +92,8 @@ def evaluate_discriminator(model, root_path):
             )
         
         epoch_loss /= iter + 1
-        true_positives /= all_positives * 100.
-        true_negatives /= all_negatives * 100.
+        true_positives *= 100. / all_positives
+        true_negatives *= 100. / all_negatives
 
         progress.close()
         
