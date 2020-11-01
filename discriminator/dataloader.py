@@ -25,6 +25,7 @@ def load_data(files, shuffle=False):
 
 def get_data_loader(root_path, data_for, shuffle=False):
     files = glob.glob(path.join(root_path, data_for, "**/*.npy"), recursive=True)
+    print(root_path, data_for, len(files))
     num_batches = len(files)
     return tqdm(
         enumerate(load_data(files, shuffle=shuffle)),
