@@ -8,7 +8,7 @@ from os import path
 
 
 if __name__ == "__main__":
-    if len(argv) != 5:
+    if len(argv) != 6:
         print("Usage: python train_discriminator.py data_root_path model_store_directory epochs log_file_path batch_size")
     else:
         data_root_path = argv[1]
