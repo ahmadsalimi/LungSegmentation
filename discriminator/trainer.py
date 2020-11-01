@@ -1,4 +1,4 @@
-from dataloader import get_data_loader
+from discriminator.dataloader import get_data_loader
 import torch
 import torch.nn.functional as F
 from math import nan
