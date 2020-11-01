@@ -20,7 +20,7 @@ if __name__ == "__main__":
         with open(log_file_path, "w", buffering=1) as handle:
             with redirect_stdout(handle):
                 try:
-                    device = "cuda" if torch.cuda.device_count > 0 else "cpu"
+                    device = "cuda" if torch.cuda.device_count() > 0 else "cpu"
                     print(f"device is {device}", flush=True)
                     discriminator = MaskDiscriminator().to(device)
                     optimizer = torch.optim.Adam(discriminator.parameters(), lr=1e-4)
