@@ -5,6 +5,7 @@ from contextlib import redirect_stdout
 import logging
 import torch
 from os import path
+from time import time
 
 
 if __name__ == "__main__":
@@ -35,6 +36,8 @@ if __name__ == "__main__":
                     for e in range(epochs):
                         print(f'\nEpoch {e+1}/{epochs}:', flush=True)
 
+                        t = time()
+
                         epoch_train_loss, epoch_train_TP, epoch_train_TN = train_discriminator(discriminator, optimizer, data_root_path, batch_size)
                         epoch_val_loss, epoch_val_TP, epoch_val_TN = evaluate_discriminator(discriminator, data_root_path)
                         
@@ -55,6 +58,15 @@ if __name__ == "__main__":
                             "val_TP": val_TP,
                             "val_TN": val_TN,
                         }, path.join(model_store_directory, f"history"))
+
+                        print(f'Epoch {e+1:03} finished in {time() - t:.2f}s')
+                        print(f'Train loss: {epoch_train_loss:.2e}')
+                        print(f'Train TP: {epoch_train_TP:.2f}')
+                        print(f'Train TN: {epoch_train_TN:.2f}')
+                        print(f'Val loss: {epoch_val_loss:.2e}')
+                        print(f'Val TP: {epoch_val_TP:.2f}')
+                        print(f'Val TN: {epoch_val_TN:.2f}')
+                        print('---------------------------------------')
 
                 except Exception as e:
                     print(e, flush=True)
