@@ -56,5 +56,5 @@ if __name__ == "__main__":
                             "val_TN": val_TN,
                         }, path.join(model_store_directory, f"history"))
 
-                except:
-                    pass
+                except Exception as e:
+                    print(e)
