@@ -42,7 +42,7 @@ def train_discriminator(model, optimizer, root_path, batch_size, sample_per_epoc
             optimizer.zero_grad()
         
         
-        print(f'[Train] Iteration {iter + 1:3d} - loss: {epoch_loss / (iter + 1):.2e} - TP: {true_positives * 100. / all_positives:.2f}% - TN: {true_negatives * 100. / all_negatives:.2f}', flush=True)
+        print(f'[Train] Iteration {iter + 1:3d} - loss: {epoch_loss / (iter + 1):.2e} - TP: {true_positives * 100. / all_positives:.2f}% - TN: {true_negatives * 100. / all_negatives:.2f}%', flush=True)
     
     if iter - last_optimized != 0:
         optimizer.step()
@@ -79,7 +79,7 @@ def evaluate_discriminator(model, root_path, device):
             true_positives += (decision[b_y]).sum()
             true_negatives += (~decision[~b_y]).sum()
 
-            print(f'[Valid] Iteration {iter + 1:3d} - loss: {epoch_loss / (iter + 1):.2e} - TP: {true_positives * 100. / all_positives:.2f}% - TN: {true_negatives * 100. / all_negatives:.2f}', flush=True)
+            print(f'[Valid] Iteration {iter + 1:3d} - loss: {epoch_loss / (iter + 1):.2e} - TP: {true_positives * 100. / all_positives:.2f}% - TN: {true_negatives * 100. / all_negatives:.2f}%', flush=True)
         
         epoch_loss /= iter + 1
         true_positives *= 100. / all_positives
