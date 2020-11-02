@@ -60,14 +60,16 @@ class ResidualBlock(nn.Module):
 
 class MaskDiscriminator(nn.Module):
 
-    def __init__(self):
+    def __init__(self, batch_norms):
         super().__init__()
 
-        self.conv = nn.Sequential(                          # B 3   H   256 256
-            ResidualBlock((3, 4, 8), (False, True)),        # B 8   H   64  64
-            ResidualBlock((8, 16, 32), (True, True)),       # B 32  H   16  16
-            ResidualBlock((32, 64, 128), (False, False)),   # B 128 H   4   4
-            ResidualBlock((128, 256, 512), (False, False)), # B 512 H   1   1
+        assert len(batch_norms) == 8
+
+        self.conv = nn.Sequential(                              # B 3   H   256 256
+            ResidualBlock((3, 4, 8), batch_norms[:2]),         # B 8   H   64  64
+            ResidualBlock((8, 16, 32), batch_norms[2:4]),       # B 32  H   16  16
+            ResidualBlock((32, 64, 128), batch_norms[4:6]),     # B 128 H   4   4
+            ResidualBlock((128, 256, 512), batch_norms[6:]),    # B 512 H   1   1
         )
 
         # H B   512

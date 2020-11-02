@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from math import nan
 
 
-def train_discriminator(model, optimizer, root_path, batch_size, device):
+def train_discriminator(model, optimizer, root_path, batch_size, sample_per_epoch, device):
     # BATCH SIZE IS 1
     epoch_loss = 0
     all_positives = 0
@@ -16,7 +16,7 @@ def train_discriminator(model, optimizer, root_path, batch_size, device):
 
     model.train()
 
-    progress = get_data_loader(root_path, "Train", shuffle=True)
+    progress = get_data_loader(root_path, "Train", sample_per_epoch=sample_per_epoch, shuffle=True)
     for iter, (b_X, b_y) in progress:
         # b_X   B   2   H   64  64
         # b_y   B
@@ -40,12 +40,9 @@ def train_discriminator(model, optimizer, root_path, batch_size, device):
             last_optimized = iter
             optimizer.step()
             optimizer.zero_grad()
-
-        progress.set_postfix(
-            loss=f"{epoch_loss / (iter + 1):.4e}",
-            TP=f"{true_positives * 100. / all_positives if all_positives != 0 else nan :.2f}",
-            TN=f"{true_negatives * 100. / all_negatives if all_negatives != 0 else nan :.2f}",
-        )
+        
+        
+        print(f'[Train] Iteration {iter + 1:3d} - loss: {epoch_loss / (iter + 1):.2e} - TP: {true_positives * 100. / all_positives:.2f}% - TN: {true_negatives * 100. / all_negatives:.2f}', flush=True)
     
     if iter - last_optimized != 0:
         optimizer.step()
@@ -54,9 +51,6 @@ def train_discriminator(model, optimizer, root_path, batch_size, device):
     epoch_loss /= iter + 1
     true_positives *= 100. / all_positives
     true_negatives *= 100. / all_negatives
-
-    progress.close()
-
     return epoch_loss, true_positives, true_negatives
 
 def evaluate_discriminator(model, root_path, device):
@@ -67,7 +61,7 @@ def evaluate_discriminator(model, root_path, device):
     true_positives = 0
     true_negatives = 0
 
-    progress = get_data_loader(root_path, "Valid", shuffle=False)
+    progress = get_data_loader(root_path, "Valid")
     with torch.no_grad():
         model.eval()
         for iter, (b_X, b_y) in progress:
@@ -85,16 +79,10 @@ def evaluate_discriminator(model, root_path, device):
             true_positives += (decision[b_y]).sum()
             true_negatives += (~decision[~b_y]).sum()
 
-            progress.set_postfix(
-                loss=f"{epoch_loss / (iter + 1):.4e}",
-                TP=f"{true_positives * 100. / all_positives if all_positives != 0 else nan :.2f}",
-                TN=f"{true_negatives * 100. / all_negatives if all_negatives != 0 else nan :.2f}",
-            )
+            print(f'[Valid] Iteration {iter + 1:3d} - loss: {epoch_loss / (iter + 1):.2e} - TP: {true_positives * 100. / all_positives:.2f}% - TN: {true_negatives * 100. / all_negatives:.2f}', flush=True)
         
         epoch_loss /= iter + 1
         true_positives *= 100. / all_positives
         true_negatives *= 100. / all_negatives
-
-        progress.close()
         
         return epoch_loss, true_positives, true_negatives
