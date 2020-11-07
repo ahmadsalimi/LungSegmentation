@@ -26,9 +26,9 @@ edge_pixels[:, 0] = 1
 edge_pixels[:, -1] = 1
 
 
-class MaskPreprocessor(object):
+class preprocess_mask(object):
 
-    def __init__(self, output_path_base='.', savePng=False, pattern_base=70):
+    def __init__(self, output_path_base, savePng=False, pattern_base=70):
         self.pattern_base = pattern_base
         self.output_path_base = output_path_base + '/'
         self.savePng = savePng
@@ -126,7 +126,7 @@ class MaskPreprocessor(object):
 
         return threshold, mean, std
 
-    def make_lungmask(self, img, nodules_mask, threshold, mean, std, img_name, si, relative_loc):
+    def make_lungmask(self, img, threshold, mean, std, img_name, si, relative_loc):
 
         base_dir = self.output_path_base + '/' + img_name + '/InitMasks/%d.png' % si
 
@@ -175,9 +175,6 @@ class MaskPreprocessor(object):
 
         o_mask = o_mask.astype(int)
 
-        # First erode away the finer elements, then dilate to include some of the pixels surrounding the lung.
-        # We don't want to accidentally clip the lung.
-
         # to break from boundary
         bnd = np.logical_not(o_mask) & morphology.dilation(o_mask, np.ones([3, 3]))
         bnd[:3, :] = True
@@ -187,10 +184,9 @@ class MaskPreprocessor(object):
 
         thresh_img = np.where(
             (img < threshold) & np.logical_not(bnd), 1.0, 0.0)  # threshold the image
-        thresh_img[nodules_mask] = 1.0
         eroded = morphology.erosion(thresh_img, np.ones([3, 3]))
-        dilation = morphology.dilation(eroded, np.ones([3, 3]))
-        # dilation = morphology.erosion(dilation, np.ones([5, 5]))
+        dilation = morphology.dilation(eroded, np.ones([8, 8]))
+        dilation = morphology.erosion(dilation, np.ones([5, 5]))
 
         dilation = np.where(bnd, 0.0, dilation)
 
@@ -356,7 +352,7 @@ class MaskPreprocessor(object):
     def cal_width(self, msk, id1):
         bb = self.find_bounding_box(msk, id1)
         return bb[3] - bb[1]
-        
+
     def get_left_and_right_object(self, msk, middle_column, ind, sp):
 
         #if not path.exists(sp + '/BPs'):
@@ -971,8 +967,33 @@ class MaskPreprocessor(object):
                          >= 0.3 * np.sum(obj_lbls == obj_lbl)):
                     image_mask[obj_lbls == obj_lbl] = ll
 
+    def run_for_slices(self, slices, heights, thicknesses, name, verbose):
+        images = []
+        for ind in range(len(slices)):
+            try:
+                slice = slices[ind]
+                image = slice.pixel_array
+                if image.shape[0] != 512:
+                    image = cv2.resize(image, dsize=(512, 512), interpolation=cv2.INTER_CUBIC)
+                image = image.astype(np.int16)
 
-    def run_for_slices(self, images, nodules_mask, heights, thicknesses, name, verbose):
+                intercept = slice.RescaleIntercept
+                slope = slice.RescaleSlope
+
+                if slope != 1:
+                    image = slope * image.astype(np.float64)
+                    image = image.astype(np.int16)
+
+                image += np.int16(intercept)
+
+                image[image <= -1400] = -1400
+
+                images.append(image)
+
+            except Exception as e:
+                print("Error in slice " + str(ind) + " of sample " + name, file=stderr)
+                print(str(e), file=stderr)
+                traceback.print_exc()
 
         mediastanial_images = []
         for im in images:
@@ -989,14 +1010,14 @@ class MaskPreprocessor(object):
 
         for ind in range(len(norm_images)):
             try:
-                mask = self.make_lungmask(mediastanial_images[ind], nodules_mask[ind], white_threshold,
+                mask = self.make_lungmask(mediastanial_images[ind], white_threshold,
                                           w_mean, w_std, name, ind, 1.0 * ind / len(norm_images))
 
                 mask = self.continues_detection(mask)
                 #self.filter_objs_with_thickness_limit(mask)
                 masks += [mask]
             except Exception as e:
-                print("Error in image " + str(ind) + " of sample " + name)
+                print("Error in image " + str(ind) + " of sample " + name, file=stderr)
                 print(str(e), file=stderr)
                 traceback.print_exc()
 
@@ -1009,8 +1030,6 @@ class MaskPreprocessor(object):
         from_down_aggr_images = np.flip(np.cumsum(
             np.flip(np.stack(tuple([(m != 0) for m in masks]), axis=0), axis=0), axis=0
         ), axis=0)
-
-        return_masks = {}
 
         for ind in range(len(norm_images)):
             try:
@@ -1038,37 +1057,54 @@ class MaskPreprocessor(object):
 
                 mask = np.abs(mask)
 
-                return_masks[ind] = mask
+                # self.merge_extra_objs(mask, middle_column)
 
+                left_bb = self.find_bounding_box(mask, 1)
+                right_bb = self.find_bounding_box(mask, 2)
+
+                lung_size = 0
+                if left_bb is not None:
+                    lung_size += (left_bb[2] - left_bb[0]) * (left_bb[3] - left_bb[1])
+                if right_bb is not None:
+                    lung_size += (right_bb[2] - right_bb[0]) * (right_bb[3] - right_bb[1])
+
+                output_path = self.output_path_base + name + "/"
+                if not os.path.exists(output_path):
+                    makedirs(output_path)
+                out_dir = output_path + str(ind) + "_" + str(heights[ind]) + "_" + str(thicknesses[ind])
+                out_dir += "_" + str(lung_size)
+
+                mask_max = np.amax(mask)
+                mask_max = max(mask_max, 1)
+
+                if self.savePng:
+
+                    infection_mask_png = np.round(float(pow(2, 16) - 1)) * infection_mask
+                    mask_png = np.floor(float(pow(2, 16) - 1) / mask_max) * mask
+                    selected_inf = infection_mask_png.astype(np.uint16)
+                    imageio.imwrite(out_dir + '_mask.png', (mask_png).astype(np.uint16))
+                    #imageio.imwrite(out_dir + '_inf_mask.png', (infection_mask_png).astype(np.uint16))
+                    imageio.imwrite(out_dir + '_org.png', (norm_img).astype(np.uint16))
+                else:
+                    selected_inf = (infection_mask).astype(np.uint8)
+                    np.save(out_dir + '_mask.npy', (mask).astype(np.uint8))
+                    np.save(out_dir + '_inf_mask.npy', (infection_mask).astype(np.uint8))
+
+                '''
+                if left_bb is not None:
+                    self.save_bb_in_256(norm_img, left_bb, out_dir + '_left')
+                    np.save(out_dir + '_bd_left.npy', (left_bb))
+                    self.save_bb_in_256(selected_inf, left_bb, out_dir + '_inf_left')
+
+                if right_bb is not None:
+                    self.save_bb_in_256(norm_img, right_bb, out_dir + '_right')
+                    np.save(out_dir + '_bd_right.npy', (right_bb))
+                    self.save_bb_in_256(selected_inf, right_bb, out_dir + '_inf_right')
+                '''
             except Exception as e:
-                print("Error in image " + str(ind) + " of sample " + name)
+                print("Error in image " + str(ind) + " of sample " + name, file=stderr)
                 print(str(e), file=stderr)
                 traceback.print_exc()
-        
-        result = np.zeros(images.shape, dtype='uint8')
-        for i in range(len(images)):
-            if i in return_masks:
-                result[i] = return_masks[i]
-        
-        return result
-    
-    def separate_left_and_right(self, masks):
-        middle_column = self.poll_for_right_and_left_lob(masks)
-
-        new_masks = np.zeros(masks.shape, dtype='uint8')
-        for ind in range(len(masks)):
-            mask = masks[ind]
-            if mask.sum() == 0:
-                continue
-
-            left_ids, right_ids = self.get_left_and_right_object(mask, middle_column, ind, self.output_path_base)
-
-            for left_id in left_ids + [1]:
-                new_masks[ind][mask == left_id] = 1
-            for right_id in right_ids + [2]:
-                new_masks[ind][mask == right_id] = 2
-            
-        return new_masks
 
     def get_view_id(self, sdicom):
 
@@ -1120,16 +1156,61 @@ class MaskPreprocessor(object):
 
         return view_slices
 
-    def preprocess(self, all_slices, scan, nodules_mask):
-        print("Total of %d Ground Glass DICOM images." % len(all_slices))
-        if len(all_slices) <= 1:
-            return
+    def preprocess(self, sample_path):
 
-        heights = []
-        thicknesses = [scan.slice_thickness] * len(all_slices)
-        for zval in scan.zvals:
-            heights.append(scan.zvals[0].val - zval.val)
-        return self.run_for_slices(all_slices, nodules_mask, heights, thicknesses, "", False)
+        pool = Pool(4)
+
+        views = self.get_all_views(sample_path)
+
+        for next_view_id in views:
+
+            view_name = '%s/%s' % (sample_path, next_view_id)
+            if path.exists(self.output_path_base + '/' + view_name):
+                continue
+
+            g = self.separate_next_view(next_view_id, sample_path)
+            print("%s: Total of %d DICOM images." % (view_name, len(g)))
+            if len(g) == 0:
+                continue
+            if len(g) >= 200:
+                continue
+            all_slices = [pydicom.dcmread(s) for s in g]
+            slices = []
+            abs_heights = []
+            whole_sample_dicoms = 0
+            for s in all_slices:
+                try:
+                    curr_height = round(1000 * s.ImagePositionPatient[2])
+                    slices.append(s)
+                    abs_heights.append(curr_height)
+                    whole_sample_dicoms += 1
+                except:
+                    pass
+            print("Total of %d Ground Glass DICOM images." % len(slices))
+            if len(slices) <= 1:
+                continue
+
+            # print(slices[0])
+            slices.sort(key=lambda x: int(-x.ImagePositionPatient[2]))
+            try:
+                slice_thickness = np.abs(
+                    slices[0].ImagePositionPatient[2] - slices[1].ImagePositionPatient[2])
+            except:
+                slice_thickness = np.abs(slices[0].SliceLocation - slices[1].SliceLocation)
+            for s in slices:
+                    s.SliceThickness = slice_thickness
+
+            heights = []
+            thicknesses = []
+            for s in slices:
+                height = slices[0].ImagePositionPatient[2] - s.ImagePositionPatient[2]
+                height = float(round(height * 100)) / 100
+                heights.append(height)
+                thicknesses.append(s.SliceThickness)
+            self.run_for_slices(slices, heights, thicknesses, view_name, False)
+
+        pool.close()
+        pool.terminate()
 
 
 def discover_samples(samples_dir):
