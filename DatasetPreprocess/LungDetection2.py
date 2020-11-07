@@ -15,6 +15,7 @@ from scipy import ndimage
 from sys import stderr
 from os import makedirs, path
 from multiprocessing import Pool
+import cv2
 
 
 pixels_rows = np.repeat(np.arange(512), 512).reshape((512, 512))
@@ -124,6 +125,11 @@ class MaskPreprocessor(object):
         centers = sorted(kmeans.cluster_centers_.flatten())
         threshold = np.mean(centers)
 
+        # minimum = pixels.min()
+        # maximum = pixels.max()
+
+        # threshold = cv2.threshold(((pixels - minimum) * 1. / (maximum - minimum) * 255).astype('uint8'), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[0] / 255. * (maximum - minimum) + minimum
+
         return threshold, mean, std
 
     def make_lungmask(self, img, nodules_mask, threshold, mean, std, img_name, si, relative_loc):
@@ -189,8 +195,8 @@ class MaskPreprocessor(object):
             (img < threshold) & np.logical_not(bnd), 1.0, 0.0)  # threshold the image
         thresh_img[nodules_mask] = 1.0
         eroded = morphology.erosion(thresh_img, np.ones([3, 3]))
-        dilation = morphology.dilation(eroded, np.ones([3, 3]))
-        # dilation = morphology.erosion(dilation, np.ones([5, 5]))
+        dilation = morphology.dilation(eroded, np.ones([8, 8]))
+        dilation = morphology.erosion(dilation, np.ones([5, 5]))
 
         dilation = np.where(bnd, 0.0, dilation)
 
@@ -261,7 +267,7 @@ class MaskPreprocessor(object):
         final_good_labels = []
         N = len(areas)
         if N > 0:
-            pix_thr = 5000
+            pix_thr = 500
             min_area = np.min(heapq.nlargest(2, areas))
 
             sorted_indices = sorted(range(N), key=lambda k: areas[k])
@@ -356,7 +362,7 @@ class MaskPreprocessor(object):
     def cal_width(self, msk, id1):
         bb = self.find_bounding_box(msk, id1)
         return bb[3] - bb[1]
-        
+
     def get_left_and_right_object(self, msk, middle_column, ind, sp):
 
         #if not path.exists(sp + '/BPs'):
@@ -586,7 +592,7 @@ class MaskPreprocessor(object):
                     #np.set_printoptions(threshold=512)
                     #print(row_breaking_cols)
 
-                '''
+                    '''
                 obj_mask_copy = np.copy(obj_mask).astype(float)
                 obj_mask_copy[np.arange(512), middle_column] = 0.25
 
@@ -599,57 +605,57 @@ class MaskPreprocessor(object):
                                 np.round(1.0 * obj_mask_copy * (pow(2, 16) - 1)).astype(np.uint16))
 
                 '''
-                # now break from the breaking column!
-                    
-                msk[np.logical_and(org_obj_mask, pixels_cols > row_breaking_cols[:, np.newaxis])] = \
-                    last_unused_id
-                
-                # checking object discontinuity by breaking!
-                left_part = org_obj_mask & (pixels_cols <= row_breaking_cols[:, np.newaxis])
-                right_part = org_obj_mask & np.logical_not(left_part)
-                
-                right_labels = measure.label(right_part)
-                # if there are more than 2 objects in it!
-                u_labels = np.unique(right_labels)
-                if len(u_labels) > 2:
-                    # sorting by area! :-/
-                    obj_areas = np.asarray([np.sum(right_labels == u_label) for u_label in u_labels])
-                    # keeping all but BG and the main which have the two greatest areas
-                    u_labels = u_labels[np.argsort(obj_areas)[:-2]]
-                    # checking for bad labels, the ones neighbors with the left part!
-                    v_has_left_label = np.vectorize(lambda r, c: 
-                                        left_part[max(0, r - 1), c] or left_part[min(511, r + 1), c] or
-                                        left_part[r, max(0, c - 1)] or left_part[r, min(511, c + 1)]
-                                        )
-                    for rem_label in u_labels:
-                        wrong_obj = np.any(
-                            v_has_left_label(pixels_rows, pixels_cols) &
-                            (right_labels == rem_label)
-                        )
-                        if wrong_obj:
-                            msk[right_labels == rem_label] = i
-            
-                left_labels = measure.label(left_part)
-                # if there are more than 2 objects in it!
-                u_labels = np.unique(left_labels)
-                if len(u_labels) > 2:
-                    # sorting by area! :-/
-                    obj_areas = np.asarray([np.sum(left_labels == u_label) for u_label in u_labels])
+                    # now break from the breaking column!
 
-                    # keeping all but BG and the main which have the two greatest areas
-                    u_labels = u_labels[np.argsort(obj_areas)[:-2]]
-                    # checking for bad labels, the ones neighbors with the right part!
-                    v_has_right_label = np.vectorize(lambda r, c:
-                                                     right_part[max(0, r - 1), c] or right_part[min(511, r + 1), c] or
-                                                     right_part[r, max(0, c - 1)] or right_part[r, min(511, c + 1)]
-                                                     )
-                    for rem_label in u_labels:
-                        wrong_obj = np.any(
-                            v_has_right_label(pixels_rows, pixels_cols) &
-                            (left_labels == rem_label)
-                        )
-                        if wrong_obj:
-                            msk[left_labels == rem_label] = last_unused_id
+                    msk[np.logical_and(org_obj_mask, pixels_cols > row_breaking_cols[:, np.newaxis])] = \
+                        last_unused_id
+
+                    # checking object discontinuity by breaking!
+                    left_part = org_obj_mask & (pixels_cols <= row_breaking_cols[:, np.newaxis])
+                    right_part = org_obj_mask & np.logical_not(left_part)
+
+                    right_labels = measure.label(right_part)
+                    # if there are more than 2 objects in it!
+                    u_labels = np.unique(right_labels)
+                    if len(u_labels) > 2:
+                        # sorting by area! :-/
+                        obj_areas = np.asarray([np.sum(right_labels == u_label) for u_label in u_labels])
+                        # keeping all but BG and the main which have the two greatest areas
+                        u_labels = u_labels[np.argsort(obj_areas)[:-2]]
+                        # checking for bad labels, the ones neighbors with the left part!
+                        v_has_left_label = np.vectorize(lambda r, c:
+                                            left_part[max(0, r - 1), c] or left_part[min(511, r + 1), c] or
+                                            left_part[r, max(0, c - 1)] or left_part[r, min(511, c + 1)]
+                                            )
+                        for rem_label in u_labels:
+                            wrong_obj = np.any(
+                                v_has_left_label(pixels_rows, pixels_cols) &
+                                (right_labels == rem_label)
+                            )
+                            if wrong_obj:
+                                msk[right_labels == rem_label] = i
+
+                    left_labels = measure.label(left_part)
+                    # if there are more than 2 objects in it!
+                    u_labels = np.unique(left_labels)
+                    if len(u_labels) > 2:
+                        # sorting by area! :-/
+                        obj_areas = np.asarray([np.sum(left_labels == u_label) for u_label in u_labels])
+
+                        # keeping all but BG and the main which have the two greatest areas
+                        u_labels = u_labels[np.argsort(obj_areas)[:-2]]
+                        # checking for bad labels, the ones neighbors with the right part!
+                        v_has_right_label = np.vectorize(lambda r, c:
+                                                         right_part[max(0, r - 1), c] or right_part[min(511, r + 1), c] or
+                                                         right_part[r, max(0, c - 1)] or right_part[r, min(511, c + 1)]
+                                                         )
+                        for rem_label in u_labels:
+                            wrong_obj = np.any(
+                                v_has_right_label(pixels_rows, pixels_cols) &
+                                (left_labels == rem_label)
+                            )
+                            if wrong_obj:
+                                msk[left_labels == rem_label] = last_unused_id
 
                     right_ids += [last_unused_id]
                     last_unused_id += 1
