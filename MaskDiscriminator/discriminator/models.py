@@ -4,15 +4,15 @@ from torch import nn
 
 class BasicBlock(nn.Module):
 
-    def __init__(self, in_channels, out_channels, batch_norm=False):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, padding=0, batch_norm=False):
         super().__init__()
 
-        self.batch_norm = nn.BatchNorm3d(in_channels) if batch_norm else lambda x: x
+        self.batch_norm = nn.BatchNorm3d(in_channels) if batch_norm else None
 
         self.conv = nn.Sequential(                                                          # B I   H   L   W
             nn.Conv3d(in_channels, out_channels, 3, 1, padding=1),                          # B O   H   L   W
             nn.LeakyReLU(0.2),
-            nn.Conv3d(out_channels, out_channels, (3, 2, 2), (1, 2, 2), padding=(1, 0, 0)), # B O   H   L/2 W/2
+            nn.Conv3d(out_channels, out_channels, kernel_size, stride, padding=padding),    # B O   H   L/2 W/2
             nn.LeakyReLU(0.2),
             nn.Dropout3d(0.2, inplace=True)
         )
@@ -20,14 +20,14 @@ class BasicBlock(nn.Module):
     def forward(self, x):
         # x     B   I   H   L   W
 
-        x = self.batch_norm(x)      # B I   H   L   W
-        out = self.conv(x)          # B O   H   L/2 W/2
+        x = self.batch_norm(x) if self.batch_norm else x    # B I   H   L   W
+        out = self.conv(x)                                  # B O   H   L/2 W/2
 
         return out
 
 
 class ResidualBlock(nn.Module):
-    def __init__(self, channels, batch_norms=(False, True)):
+    def __init__(self, channels, kernel_size, stride, down_sample_kernel_size, down_sample_stride, padding=0, batch_norms=(False, True)):
         super().__init__()
 
         if len(channels) != 3:
@@ -36,15 +36,15 @@ class ResidualBlock(nn.Module):
         if len(batch_norms) != 2:
             raise Exception('You should pass 2 batch_norms for 2 basic layers')
 
-        self.conv = nn.Sequential(                                  # B I   H   L   W
-            BasicBlock(channels[0], channels[1], batch_norms[0]),   # B M   H   L/2 W/2
-            BasicBlock(channels[1], channels[2], batch_norms[1]),   # B O   H   L/4 W/4
+        self.conv = nn.Sequential(                                                                                      # B I   H   L   W
+            BasicBlock(channels[0], channels[1], kernel_size, stride, padding=padding, batch_norm=batch_norms[0]),   # B M   H   L/2 W/2
+            BasicBlock(channels[1], channels[2], kernel_size, stride, padding=padding, batch_norm=batch_norms[1]),   # B O   H   L/4 W/4
         )
 
-        self.downsample = nn.Sequential(                            # B I   H   L   W
-            nn.Conv3d(channels[0], channels[2], 3, 1, padding=1),   # B O   H   L   W
+        self.downsample = nn.Sequential(                                                    # B I   H   L   W
+            nn.Conv3d(channels[0], channels[2], 3, 1, padding=1),                           # B O   H   L   W
             nn.LeakyReLU(0.2),
-            nn.AvgPool3d((3, 4, 4), (1, 4, 4), padding=(1, 0, 0)),  # B O   H   L/4 W/4
+            nn.AvgPool3d(down_sample_kernel_size, down_sample_stride, padding=padding),     # B O   H   L/4 W/4
         )
     
     def forward(self, x):
@@ -58,18 +58,22 @@ class ResidualBlock(nn.Module):
         return out
 
 
-class MaskDiscriminator(nn.Module):
+class WholeMaskDiscriminator(nn.Module):
 
     def __init__(self, batch_norms):
         super().__init__()
 
-        assert len(batch_norms) == 8
+        kernel_size = (3, 2, 2)
+        stride = (1, 2, 2)
+        down_sample_kernel_size = (3, 4, 4)
+        down_sample_stride = (1, 4, 4)
+        padding = (1, 0, 0)
 
-        self.conv = nn.Sequential(                              # B 3   H   256 256
-            ResidualBlock((3, 4, 8), batch_norms[:2]),         # B 8   H   64  64
-            ResidualBlock((8, 16, 32), batch_norms[2:4]),       # B 32  H   16  16
-            ResidualBlock((32, 64, 128), batch_norms[4:6]),     # B 128 H   4   4
-            ResidualBlock((128, 256, 512), batch_norms[6:]),    # B 512 H   1   1
+        self.conv = nn.Sequential(                                                                                                                              # B 3   H   256 256
+            ResidualBlock((3, 4, 8), kernel_size, stride, down_sample_kernel_size, down_sample_stride, padding=padding, batch_norms=batch_norms[:2]),           # B 8   H   64  64
+            ResidualBlock((8, 16, 32), kernel_size, stride, down_sample_kernel_size, down_sample_stride, padding=padding, batch_norms=batch_norms[2:4]),        # B 32  H   16  16
+            ResidualBlock((32, 64, 128), kernel_size, stride, down_sample_kernel_size, down_sample_stride, padding=padding, batch_norms=batch_norms[4:6]),      # B 128 H   4   4
+            ResidualBlock((128, 256, 512), kernel_size, stride, down_sample_kernel_size, down_sample_stride, padding=padding, batch_norms=batch_norms[6:]),     # B 512 H   1   1
         )
 
         # H B   512
@@ -92,11 +96,48 @@ class MaskDiscriminator(nn.Module):
         x = self.conv(x)                # B 512 H   1   1
         x = x.squeeze(-1).squeeze(-1)   # B 512 H
         x = x.permute(2, 0, 1)          # H B   512
-        _, (h, c) = self.lstm(x)        # 1 B   256 + 1 B   256
+        hs, (h, c) = self.lstm(x)       # 1 B   256 + 1 B   256
+
+        h = h + hs.mean(dim=0).unsqueeze(0)
+
         out = torch.cat((h, c), dim=2)  # 1 B   512
         out = out.permute(1, 0, 2)      # B 1   512
         out = out.reshape(-1, 512)      # B 512
         out = self.decider(out)         # B 1
         out = out.flatten()             # B
+
+        return out
+
+
+class PatchMaskDiscriminator(nn.Module):
+
+    def __init__(self, batch_norms):
+        super().__init__()
+
+        self.conv = nn.Sequential(                                                                                                  # B 3   64  256 256
+            ResidualBlock((3, 4, 8), 2, 2, 4, 4, padding=0, batch_norms=batch_norms[:2]),                                           # B 8   16  64  64
+            ResidualBlock((8, 16, 32), 2, 2, 4, 4, padding=0, batch_norms=batch_norms[2:4]),                                        # B 32  4   16  16
+            ResidualBlock((32, 64, 128), 2, 2, 4, 4, padding=0, batch_norms=batch_norms[4:6]),                                      # B 128 1   4   4
+            ResidualBlock((128, 256, 512), (1, 2, 2), (1, 2, 2), (1, 4, 4), (1, 4, 4), padding=0, batch_norms=batch_norms[6:]),     # B 512 1   1   1
+        )
+
+        self.decider = nn.Sequential(                       # B 512
+            nn.Linear(512, 256),                            # B 256
+            nn.LeakyReLU(0.2),
+            nn.Dropout(0.5, inplace=True),
+            nn.Linear(256, 128),                            # B 128
+            nn.LeakyReLU(0.2),
+            nn.Dropout(0.5, inplace=True),
+            nn.Linear(128, 1),                              # B 1
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        # x     B   3   64  256 256
+
+        out = self.conv(x)          # B 512 1   1   1
+        out = out.reshape(-1, 512)  # B 512
+        out = self.decider(out)     # B 1
+        out = out.flatten()         # B
 
         return out
