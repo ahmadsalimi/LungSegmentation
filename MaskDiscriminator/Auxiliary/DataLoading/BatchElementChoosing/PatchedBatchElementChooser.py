@@ -29,6 +29,5 @@ class TrainPatchedBatchElementChooser(BatchElementChooser):
         """ Receives the sample indices for the new batch, sets up whatever needed in itself
         and returns the indices of the chosen elements for each sample for the next batch. """
         heights = self.data_loader.get_samples_heights()
-
         return np.stack(tuple(self.extract_patches(heights[i]) for i in batch_sample_indices), axis=0)
         
