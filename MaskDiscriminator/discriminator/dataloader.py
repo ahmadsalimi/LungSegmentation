@@ -14,7 +14,7 @@ def load_data(samples: pd.DataFrame, batch_size: int) -> Iterable[Tuple[List[np.
     batch_samples: List[np.ndarray] = []
     batch_labels: List[bool]
     for _, sample_row in samples.iterrows():
-        sample: np.ndarray = torch.tensor(np.load(sample_row.Path))
+        sample = torch.tensor(np.load(sample_row.Path))
 
         assert sample.ndim == 4
         assert sample.shape[0] == 3
