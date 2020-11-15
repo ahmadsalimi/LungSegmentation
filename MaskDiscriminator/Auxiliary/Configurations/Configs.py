@@ -39,7 +39,8 @@ def get_shared_config():
         'epoch': None,
         'repeat_value': 1,
         'augment': False,
-        'track_preds_on_data': False
+        'track_preds_on_data': False,
+        'turn_on_val_mode': True,
     }
 
     args = define_arg_parser().parse_args()

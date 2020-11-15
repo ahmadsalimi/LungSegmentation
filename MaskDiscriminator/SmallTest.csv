@@ -1,0 +1,5 @@
+Group,Path,Label,Height
+Train,Data\Baghiat\1\0_1.25 copy.npy,True,53
+Valid,Data\TRC\0\130_1.25.npy,False,25
+Valid,Data\Baghiat\1\0_1.25.npy,True,53
+Train,Data\TRC\0\130_1.25 copy.npy,False,25

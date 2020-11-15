@@ -7,9 +7,19 @@ import os
 import sklearn
 import numpy as np
 from typing import Tuple, List
+from multiprocessing import Pool
 
-def get_by_label(root_dir: str, label: int, train_frac: float, test_frac: float) -> Tuple[List[str], List[bool], List[str]]:
+def get_height(file: str) -> int:
+    array = np.load(file)
+    return array.shape[1]
+
+def get_heights(files:List[str]) -> List[int]:
+    pool = Pool(8)
+    return pool.map(get_height, files)
+
+def get_by_label(root_dir: str, label: int, train_frac: float, test_frac: float) -> Tuple[List[str], List[bool], List[str], List[int]]:
     files = list(set(glob.glob(os.path.join(root_dir, "**", str(label), "**/*.npy")) + glob.glob(os.path.join(root_dir, "**", str(label), "*.npy"))))
+    heights = get_heights(files)
     labels = [bool(label)] * len(files)
 
     np.random.shuffle(files)
@@ -22,14 +32,14 @@ def get_by_label(root_dir: str, label: int, train_frac: float, test_frac: float)
 
     assert len(files) == len(labels) and len(files) == len(groups)
 
-    return files, labels, groups
+    return files, labels, groups, heights
 
 
 def split_datasets(root_dir: str, train_frac: float, test_frac: float) -> pd.DataFrame:
 
-    abnormal_files, abnormal_Labels, abnormal_groups = get_by_label(root_dir, 2, train_frac, test_frac)
-    positive_files, positive_labels, positive_groups = get_by_label(root_dir, 1, train_frac, test_frac)
-    negative_files, negative_labels, negative_groups = get_by_label(root_dir, 0, train_frac, test_frac)
+    abnormal_files, abnormal_Labels, abnormal_groups, abnormal_heights = get_by_label(root_dir, 2, train_frac, test_frac)
+    positive_files, positive_labels, positive_groups, positive_heights = get_by_label(root_dir, 1, train_frac, test_frac)
+    negative_files, negative_labels, negative_groups, negative_heights = get_by_label(root_dir, 0, train_frac, test_frac)
 
     print(f"abnormal count: {len(abnormal_files)}")
     print(f"positive count: {len(positive_files)}")
@@ -38,11 +48,13 @@ def split_datasets(root_dir: str, train_frac: float, test_frac: float) -> pd.Dat
     all_files = abnormal_files + positive_files + negative_files
     all_labels = abnormal_Labels + positive_labels + negative_labels
     all_groups = abnormal_groups + positive_groups + negative_groups
+    all_heights = abnormal_heights + positive_heights + negative_heights
 
     df = pd.DataFrame(data={
         "Group": all_groups,
         "Path": all_files,
-        "Label": all_labels
+        "Label": all_labels,
+        "Height": all_heights
     })
 
     df = sklearn.utils.shuffle(df)
@@ -54,7 +66,7 @@ if __name__ == "__main__":
     train_frac = .5
     test_frac = 0
 
-    root_dir = 'MaskDiscriminator/Data'
-    csv_file = 'MaskDiscriminator/data_split_01.csv'
+    root_dir = 'Data'
+    csv_file = 'SmallTest.csv'
     df = split_datasets(root_dir, train_frac, test_frac)
     df.to_csv(csv_file, index=False)

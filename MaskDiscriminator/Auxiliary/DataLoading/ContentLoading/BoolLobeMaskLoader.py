@@ -7,14 +7,14 @@ from Auxiliary.Threading.WorkerCoordinating import WorkersCoordinator
 import pandas as pd
 import torch
 import torch.nn.functional as F
+import os
 
 
 class BoolLobeMaskLoader(ContentLoader):
 
     def __init__(self, conf, prefix_name, data_specification):
-        super(BoolLobeMaskLoader, self).__init__(
-            conf, prefix_name, data_specification)
-        filename = conf['dataSeparation']
+        super(BoolLobeMaskLoader, self).__init__(conf, prefix_name, data_specification)
+        filename = os.path.join(conf['dataSeparationDir'], f"{conf['dataSeparation']}.csv")
         self.samples: pd.DataFrame = pd.read_csv(filename)
         self.samples: pd.DataFrame = self.samples[self.samples.Group == data_specification]
         self.loader_workers = WorkersCoordinator(4)
