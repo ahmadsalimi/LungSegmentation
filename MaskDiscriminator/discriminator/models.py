@@ -105,7 +105,7 @@ class WholeMaskDiscriminator(nn.Module):
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x     B   3   H   256  256
-
+        # TODO
         x = self.conv(x)                # B 512 H   1   1
         x = x.squeeze(-1).squeeze(-1)   # B 512 H
         x = x.permute(2, 0, 1)          # H B   512
@@ -146,7 +146,9 @@ class PatchMaskDiscriminator(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x     B   3   64  256 256
+        # x     B   P   3   64  256 256
+
+        
 
         out = self.conv(x)          # B 512 1   1   1
         out = out.reshape(-1, 512)  # B 512
@@ -154,3 +156,15 @@ class PatchMaskDiscriminator(nn.Module):
         out = out.flatten()         # B
 
         return out
+
+
+def calculate_loss(prediction: torch.Tensor, target: torch.Tensor, B: int, P: int) -> torch.Tensor:
+    # prediction:   B*P
+    # target:       B
+
+    patchwise_prediction: torch.Tensor = prediction.reshape(B, P)             # B P
+    batchwise_prediction: torch.Tensor = patchwise_prediction.amax(dim=1)     # B
+
+    loss = F.binary_cross_entropy(batchwise_prediction, target)
+
+    return loss

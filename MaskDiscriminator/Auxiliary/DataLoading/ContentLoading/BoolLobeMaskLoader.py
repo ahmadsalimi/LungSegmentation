@@ -31,6 +31,9 @@ class BoolLobeMaskLoader(ContentLoader):
         """ Returns list of labels of the whole samples.
         The order of the list must always be the same during one run."""
         return self.samples.Label.values
+    
+    def get_samples_heights(self):
+        return self.samples.Height.values
 
     def get_samples_batch_effect_groups(self):
         """ Returns a dictionary from each class label to one list per class label.
@@ -72,7 +75,9 @@ class BoolLobeMaskLoader(ContentLoader):
         def read_one_sample(sample_index: int, element_inds: np.ndarray) -> np.ndarray:
             filename = self.samples.Path.values[sample_index]
             sample = torch.tensor(np.load(filename))
-            return F.interpolate(sample.float(), 256, mode='bilinear', align_corners=False).numpy()
+            sample = F.interpolate(sample.float(), 256, mode='bilinear', align_corners=False).numpy()
+
+            return np.stack(tuple(sample[:, start:start+length] for start, length in element_inds), axis=0)
 
         return np.stack(tuple(self.loader_workers.run_func(read_one_sample, zip(sample_inds, element_inds))), axis=0)
 

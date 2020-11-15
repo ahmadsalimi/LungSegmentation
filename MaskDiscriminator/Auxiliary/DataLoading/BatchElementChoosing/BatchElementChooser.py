@@ -1,13 +1,14 @@
 from abc import abstractmethod
+from Auxiliary.DataLoading.ContentLoading.BoolLobeMaskLoader import BoolLobeMaskLoader
 import numpy as np
 
 
 class BatchElementChooser:
 
-    def __init__(self, data_loader):
+    def __init__(self, data_loader: BoolLobeMaskLoader):
         """ Receives data loader which is a class containing information about the samples
         and sets it in itself for using. """
-        self.data_loader = data_loader
+        self.data_loader: BoolLobeMaskLoader = data_loader
         self.prev_batch_sample_indices = np.asarray([])
 
     @abstractmethod
