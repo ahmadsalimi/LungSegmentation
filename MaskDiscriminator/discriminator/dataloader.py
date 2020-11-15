@@ -3,9 +3,12 @@ import numpy as np
 from os import path
 import glob
 import torch.nn.functional as F
+import pandas as pd
+from collections.abc import Iterable
+import sklearn
 
 
-def load_data(files):
+def load_data(samples:pd.DataFrame, batch_size:int) -> tuple[list[np.ndarray], np.ndarray]:
 
     for file in files:
         file = file.replace("\\","/")
@@ -21,13 +24,16 @@ def load_data(files):
 
         yield sample, label
 
-def get_data_loader(root_path, data_for, sample_per_epoch = -1, shuffle=False):
-    positive_files = glob.glob(path.join(root_path, data_for, "1/*.npy"), recursive=True)
-    negative_files = glob.glob(path.join(root_path, data_for, "0/*.npy"), recursive=True)
-    if shuffle:
-        positive_files = np.random.choice(positive_files, size=sample_per_epoch//2, replace=False)
-        negative_files = np.random.choice(negative_files, size=sample_per_epoch//2, replace=False)
+def get_data_loader(data_split_file: str, group: str, batch_size:int, sample_count: int=-1) -> Iterable[tuple[list[np.ndarray], np.ndarray]]:
+    data_split: pd.DataFrame = pd.read_csv(data_split_file)
+    positive_samples:pd.DataFrame = data_split[data_split.Label]
+    negative_samples:pd.DataFrame = data_split[~data_split.Label]
+
+    if sample_count > 0:
+        positive_samples = positive_samples.sample(n=sample_count // 2)
+        negative_samples = negative_samples.sample(n=sample_count // 2)
     
-    files = np.concatenate((positive_files, negative_files))
-    np.random.shuffle(files)
-    return enumerate(load_data(files))
+    samples = pd.concat((positive_samples, negative_samples))
+    samples = sklearn.utils.shuffle(samples)
+
+    return enumerate(load_data(samples, batch_size))

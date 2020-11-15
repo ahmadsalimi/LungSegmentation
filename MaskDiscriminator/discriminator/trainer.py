@@ -2,6 +2,8 @@ from discriminator.dataloader import get_data_loader
 import torch
 import torch.nn.functional as F
 from math import nan
+import numpy as np
+from collections.abc import Iterable
 
 
 def train_discriminator(model, optimizer, root_path, batch_size, sample_per_epoch, device):
@@ -86,3 +88,27 @@ def evaluate_discriminator(model, root_path, device):
         true_negatives *= 100. / all_negatives
         
         return epoch_loss, true_positives, true_negatives
+
+
+def extract_patches(b_X: Iterable[np.ndarray], patch_size: int) -> np.ndarray:
+    samples: list[np.ndarray] = []
+    for sample in b_X:
+        # sample    3   H   256 256
+        max_choice: int = max(1, sample.shape[1] - 63)
+        patch_starts: np.ndarray = np.random.choice(max_choice, size=patch_size, replace=max_choice<patch_size)
+        array = np.array([sample[start:start+64] for start in patch_starts])    # P 3   64  256 256
+        samples.append(array)
+    
+    return np.array(samples)    # B P   3   64  256 256
+
+
+def calculate_loss(prediction: torch.Tensor, target: torch.Tensor, B: int, P: int) -> torch.Tensor:
+    # prediction:   B*P
+    # target:       B
+
+    patchwise_prediction: torch.Tensor = prediction.reshape(B, P)             # B P
+    batchwise_prediction: torch.Tensor = patchwise_prediction.amax(dim=1)     # B
+
+    loss = F.binary_cross_entropy(batchwise_prediction, target)
+
+    return loss
