@@ -4,27 +4,39 @@ from os import path
 import glob
 import torch.nn.functional as F
 import pandas as pd
-from collections.abc import Iterable
+from typing import Tuple, List, Iterable, Generator
 import sklearn
+import numpy as np
 
 
-def load_data(samples:pd.DataFrame, batch_size:int) -> tuple[list[np.ndarray], np.ndarray]:
+def load_data(samples: pd.DataFrame, batch_size: int) -> Iterable[Tuple[List[np.ndarray], np.ndarray]]:
 
-    for file in files:
-        file = file.replace("\\","/")
-        sample = torch.tensor(np.load(file))
+    batch_samples: List[np.ndarray] = []
+    batch_labels: List[bool]
+    for _, sample_row in samples.iterrows():
+        sample: np.ndarray = torch.tensor(np.load(sample_row.Path))
 
         assert sample.ndim == 4
         assert sample.shape[0] == 3
         assert sample.shape[-1] == 512
         assert sample.shape[-2] == 512
 
-        sample = F.interpolate(sample.float(), 256, mode='bilinear', align_corners=False).numpy()[np.newaxis]
-        label = np.array([bool(int(file.split("/")[-2]))])
+        sample = F.interpolate(sample.float(), 256, mode='bilinear', align_corners=False).numpy()
+        label: bool = sample.Label
 
-        yield sample, label
+        batch_samples.append(sample)
+        batch_labels.append(label)
 
-def get_data_loader(data_split_file: str, group: str, batch_size:int, sample_count: int=-1) -> Iterable[tuple[list[np.ndarray], np.ndarray]]:
+        if len(batch_samples) == batch_size:
+            yield batch_samples, np.array(batch_labels)
+            batch_samples = []
+            batch_labels = []
+    
+    if batch_samples:
+        yield batch_samples, np.array(batch_labels)
+
+
+def get_data_loader(data_split_file: str, group: str, batch_size:int, sample_count: int=-1) -> Iterable[Tuple[int, Tuple[List[np.ndarray], np.ndarray]]]:
     data_split: pd.DataFrame = pd.read_csv(data_split_file)
     positive_samples:pd.DataFrame = data_split[data_split.Label]
     negative_samples:pd.DataFrame = data_split[~data_split.Label]

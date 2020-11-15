@@ -6,9 +6,9 @@ import random
 import os
 import sklearn
 import numpy as np
+from typing import Tuple, List
 
-
-def get_by_label(root_dir, label, train_frac, test_frac):
+def get_by_label(root_dir: str, label: int, train_frac: float, test_frac: float) -> Tuple[List[str], List[bool], List[str]]:
     files = list(set(glob.glob(os.path.join(root_dir, "**", str(label), "**/*.npy")) + glob.glob(os.path.join(root_dir, "**", str(label), "*.npy"))))
     labels = [bool(label)] * len(files)
 
@@ -25,7 +25,7 @@ def get_by_label(root_dir, label, train_frac, test_frac):
     return files, labels, groups
 
 
-def split_datasets(root_dir, train_frac, test_frac):
+def split_datasets(root_dir: str, train_frac: float, test_frac: float) -> pd.DataFrame:
 
     abnormal_files, abnormal_Labels, abnormal_groups = get_by_label(root_dir, 2, train_frac, test_frac)
     positive_files, positive_labels, positive_groups = get_by_label(root_dir, 1, train_frac, test_frac)

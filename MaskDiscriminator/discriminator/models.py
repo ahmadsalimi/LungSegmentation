@@ -1,15 +1,21 @@
 import torch
 from torch import nn
-
+from typing import Union, Tuple, Iterable
 
 class BasicBlock(nn.Module):
 
-    def __init__(self, in_channels, out_channels, kernel_size, stride, padding=0, batch_norm=False):
+    def __init__(self, 
+        in_channels: int, 
+        out_channels: int, 
+        kernel_size: Union[int, Tuple[int, int, int]], 
+        stride: Union[int, Tuple[int, int, int]], 
+        padding: Union[int, Tuple[int, int, int]] = 0, 
+        batch_norm: bool = False):
         super().__init__()
 
         self.batch_norm = nn.BatchNorm3d(in_channels) if batch_norm else None
 
-        self.conv = nn.Sequential(                                                          # B I   H   L   W
+        self.conv: nn.Module = nn.Sequential(                                               # B I   H   L   W
             nn.Conv3d(in_channels, out_channels, 3, 1, padding=1),                          # B O   H   L   W
             nn.LeakyReLU(0.2),
             nn.Conv3d(out_channels, out_channels, kernel_size, stride, padding=padding),    # B O   H   L/2 W/2
@@ -17,17 +23,24 @@ class BasicBlock(nn.Module):
             nn.Dropout3d(0.2, inplace=True)
         )
     
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x     B   I   H   L   W
 
         x = self.batch_norm(x) if self.batch_norm else x    # B I   H   L   W
-        out = self.conv(x)                                  # B O   H   L/2 W/2
+        out: torch.Tensor = self.conv(x)                    # B O   H   L/2 W/2
 
         return out
 
 
 class ResidualBlock(nn.Module):
-    def __init__(self, channels, kernel_size, stride, down_sample_kernel_size, down_sample_stride, padding=0, batch_norms=(False, True)):
+    def __init__(self, 
+        channels: Tuple[int, int, int], 
+        kernel_size: Union[int, Tuple[int, int, int]], 
+        stride: Union[int, Tuple[int, int, int]],
+        down_sample_kernel_size: Union[int, Tuple[int, int, int]],
+        down_sample_stride: Union[int, Tuple[int, int, int]],
+        padding: Union[int, Tuple[int, int, int]] = 0,
+        batch_norms: Tuple[bool, bool] = (False, True)):
         super().__init__()
 
         if len(channels) != 3:
@@ -36,9 +49,9 @@ class ResidualBlock(nn.Module):
         if len(batch_norms) != 2:
             raise Exception('You should pass 2 batch_norms for 2 basic layers')
 
-        self.conv = nn.Sequential(                                                                                      # B I   H   L   W
-            BasicBlock(channels[0], channels[1], kernel_size, stride, padding=padding, batch_norm=batch_norms[0]),   # B M   H   L/2 W/2
-            BasicBlock(channels[1], channels[2], kernel_size, stride, padding=padding, batch_norm=batch_norms[1]),   # B O   H   L/4 W/4
+        self.conv = nn.Sequential(                                                                                  # B I   H   L   W
+            BasicBlock(channels[0], channels[1], kernel_size, stride, padding=padding, batch_norm=batch_norms[0]),  # B M   H   L/2 W/2
+            BasicBlock(channels[1], channels[2], kernel_size, stride, padding=padding, batch_norm=batch_norms[1]),  # B O   H   L/4 W/4
         )
 
         self.downsample = nn.Sequential(                                                    # B I   H   L   W
@@ -47,7 +60,7 @@ class ResidualBlock(nn.Module):
             nn.AvgPool3d(down_sample_kernel_size, down_sample_stride, padding=padding),     # B O   H   L/4 W/4
         )
     
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x     B   I   H   L   W
 
         out = self.conv(x)                  # B O   H   L/4 W/4
@@ -60,7 +73,7 @@ class ResidualBlock(nn.Module):
 
 class WholeMaskDiscriminator(nn.Module):
 
-    def __init__(self, batch_norms):
+    def __init__(self, batch_norms: Tuple[bool, bool, bool, bool, bool, bool, bool, bool]):
         super().__init__()
 
         kernel_size = (3, 2, 2)
@@ -90,7 +103,7 @@ class WholeMaskDiscriminator(nn.Module):
             nn.Sigmoid()
         )
     
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x     B   3   H   256  256
 
         x = self.conv(x)                # B 512 H   1   1
@@ -111,7 +124,7 @@ class WholeMaskDiscriminator(nn.Module):
 
 class PatchMaskDiscriminator(nn.Module):
 
-    def __init__(self, batch_norms):
+    def __init__(self, batch_norms: Tuple[bool, bool, bool, bool, bool, bool, bool, bool]):
         super().__init__()
 
         self.conv = nn.Sequential(                                                                                                  # B 3   64  256 256
@@ -132,7 +145,7 @@ class PatchMaskDiscriminator(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x     B   3   64  256 256
 
         out = self.conv(x)          # B 512 1   1   1

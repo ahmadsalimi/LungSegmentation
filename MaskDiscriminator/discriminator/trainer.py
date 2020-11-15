@@ -1,18 +1,21 @@
 from discriminator.dataloader import get_data_loader
 import torch
+from torch import nn
+from torch import optim
 import torch.nn.functional as F
 from math import nan
 import numpy as np
 from collections.abc import Iterable
+from typing import Tuple, List
 
 
-def train_discriminator(model, optimizer, root_path, batch_size, sample_per_epoch, device):
+def train_discriminator(model: nn.Module, optimizer: optim.Optimizer, root_path: str, batch_size: int, sample_per_epoch: int, device: torch.device) -> Tuple[float, float, float]:
     # BATCH SIZE IS 1
-    epoch_loss = 0
-    all_positives = 0
-    all_negatives = 0
-    true_positives = 0
-    true_negatives = 0
+    epoch_loss = .0
+    all_positives = .0
+    all_negatives = .0
+    true_positives = .0
+    true_negatives = .0
 
     last_optimized = -1
 
@@ -55,13 +58,13 @@ def train_discriminator(model, optimizer, root_path, batch_size, sample_per_epoc
     true_negatives *= 100. / all_negatives
     return epoch_loss, true_positives, true_negatives
 
-def evaluate_discriminator(model, root_path, device):
+def evaluate_discriminator(model: nn.Module, root_path: str, device: torch.device) -> Tuple[float, float, float]:
     # BATCH SIZE IS 1
-    epoch_loss = 0
-    all_positives = 0
-    all_negatives = 0
-    true_positives = 0
-    true_negatives = 0
+    epoch_loss = .0
+    all_positives = .0
+    all_negatives = .0
+    true_positives = .0
+    true_negatives = .0
 
     progress = get_data_loader(root_path, "Valid")
     with torch.no_grad():
@@ -91,7 +94,7 @@ def evaluate_discriminator(model, root_path, device):
 
 
 def extract_patches(b_X: Iterable[np.ndarray], patch_size: int) -> np.ndarray:
-    samples: list[np.ndarray] = []
+    samples: List[np.ndarray] = []
     for sample in b_X:
         # sample    3   H   256 256
         max_choice: int = max(1, sample.shape[1] - 63)
