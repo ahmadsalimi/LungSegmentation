@@ -1,0 +1,5 @@
+Group,Path,Label
+Train,MaskDiscriminator/Data\TRC\0\130_1.25 copy.npy,False
+Valid,MaskDiscriminator/Data\TRC\0\130_1.25.npy,False
+Valid,MaskDiscriminator/Data\Baghiat\1\0_1.25 copy.npy,True
+Train,MaskDiscriminator/Data\Baghiat\1\0_1.25.npy,True

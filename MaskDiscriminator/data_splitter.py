@@ -8,29 +8,28 @@ import sklearn
 import numpy as np
 
 
-def get_by_label(root_dir, label):
+def get_by_label(root_dir, label, train_frac, test_frac):
     files = list(set(glob.glob(os.path.join(root_dir, "**", str(label), "**/*.npy")) + glob.glob(os.path.join(root_dir, "**", str(label), "*.npy"))))
     labels = [bool(label)] * len(files)
 
     np.random.shuffle(files)
 
-    train_count = int(np.ceil(len(files) * .7))
-    test_count = int(np.ceil(len(files) * .2))
+    train_count = int(np.ceil(len(files) * train_frac))
+    test_count = int(np.floor(len(files) * test_frac))
     valid_count = len(files) - train_count - test_count
 
-    groups = ["Train"] * train_count + ["Test"] * \
-        test_count + ["Valid"] * valid_count
+    groups = ["Train"] * train_count + ["Test"] * test_count + ["Valid"] * valid_count
 
     assert len(files) == len(labels) and len(files) == len(groups)
 
     return files, labels, groups
 
 
-def split_datasets(root_dir):
+def split_datasets(root_dir, train_frac, test_frac):
 
-    abnormal_files, abnormal_Labels, abnormal_groups = get_by_label(root_dir, 2)
-    positive_files, positive_labels, positive_groups = get_by_label(root_dir, 1)
-    negative_files, negative_labels, negative_groups = get_by_label(root_dir, 0)
+    abnormal_files, abnormal_Labels, abnormal_groups = get_by_label(root_dir, 2, train_frac, test_frac)
+    positive_files, positive_labels, positive_groups = get_by_label(root_dir, 1, train_frac, test_frac)
+    negative_files, negative_labels, negative_groups = get_by_label(root_dir, 0, train_frac, test_frac)
 
     print(f"abnormal count: {len(abnormal_files)}")
     print(f"positive count: {len(positive_files)}")
@@ -52,7 +51,10 @@ def split_datasets(root_dir):
 
 
 if __name__ == "__main__":
-    root_dir = '/home/ghavami.ce.sharif/MaskDiscriminator/Data'
-    csv_file = '/home/ghavami.ce.sharif/MaskDiscriminator/data_split_01.csv'
-    df = split_datasets(root_dir)
+    train_frac = .5
+    test_frac = 0
+
+    root_dir = 'MaskDiscriminator/Data'
+    csv_file = 'MaskDiscriminator/data_split_01.csv'
+    df = split_datasets(root_dir, train_frac, test_frac)
     df.to_csv(csv_file, index=False)
