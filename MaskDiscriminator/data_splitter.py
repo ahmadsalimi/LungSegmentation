@@ -28,7 +28,7 @@ def get_by_label(root_dir: str, label: int, train_frac: float, test_frac: float)
     test_count = int(np.floor(len(files) * test_frac))
     valid_count = len(files) - train_count - test_count
 
-    groups = ["Train"] * train_count + ["Test"] * test_count + ["Valid"] * valid_count
+    groups = ["train"] * train_count + ["test"] * test_count + ["val"] * valid_count
 
     assert len(files) == len(labels) and len(files) == len(groups)
 
