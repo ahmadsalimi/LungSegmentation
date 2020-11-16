@@ -180,3 +180,9 @@ class DataLoader:
                 batch_sample_inds[i]][(batch_elements_inds[i, :])[ok_mask]] = \
                 (preds_for_batch[i, :])[ok_mask]
 
+    def get_content_loader_of_interest(self, cl_type):
+        for cl in self.content_loaders:
+            if isinstance(cl, cl_type):
+                return cl
+
+        raise Exception('No content loader of the specified type was found.')

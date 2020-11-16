@@ -6,12 +6,16 @@ class Model(torch.nn.Module):
     def __init__(self):
         super(Model, self).__init__()
 
-    def init_weights_from_other_model(self, pretrained_model_dir):
+    def init_weights_from_other_model(self, pretrained_model_dir=None):
         """ Initializes the weights from another model with the given address,
         Default is to set all the parameters with the same name and shape,
         but can be rewritten in subclasses.
         The model to load is received via the function get_other_model_to_load_from.
         The default value is the same model!"""
+
+        if pretrained_model_dir is None:
+            print('The model was not preinitialized.')
+            return
 
         other_model = self.get_other_model_to_load_from()
 

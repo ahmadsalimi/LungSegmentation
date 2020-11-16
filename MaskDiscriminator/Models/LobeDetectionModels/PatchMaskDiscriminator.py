@@ -1,22 +1,15 @@
-import torch
 import torch.backends.cudnn
 from torch import nn
-import numpy as np # linear algebra
 from os import getcwd
 from sys import path as sys_path
 sys_path.insert(0, getcwd())
 from Auxiliary.Main import run_main
 from Auxiliary.Configurations.Configs import get_shared_config
-from MiddleProcessing.NeuronInfectionMasking.ThresholdedNeuronInfectionMasker import ThresholdedInfectionNeuronMasker
 from Auxiliary.ModelEvaluation.BinaryEvaluator import BinaryEvaluator
 from Auxiliary.ModelTraining.Trainer import Trainer
 from Auxiliary.ModelRunning.ModelRunner import ModelRunner
-from Auxiliary.DataLoading.BatchChoosing.RandomBatchChooser import RandomBatchChooser
 from Auxiliary.DataLoading.BatchChoosing.SequentialBatchChooser import SequentialBatchChooser
 from Auxiliary.DataLoading.ContentLoading.BoolLobeMaskLoader import BoolLobeMaskLoader
-from Auxiliary.DataLoading.BatchElementChoosing.RandomOffsetInHeightBatchElementChooser import RandomOffsetInHeightBatchElementChooser
-from Auxiliary.DataLoading.BatchElementChoosing.CompleteElementsIteratorBatchElementChooser import CompleteElementsIteratorBatchElementChooser
-from Models.CoronaModels.IT_HamedNet2_6 import CoronaPredictor as IT_HamedNet2_6
 from Auxiliary.DataLoading.BatchChoosing.RandomBatchChooser import RandomBatchChooser
 from Auxiliary.DataLoading.BatchElementChoosing.PatchedBatchElementChooser import TrainPatchedBatchElementChooser
 from Models.Model import Model
