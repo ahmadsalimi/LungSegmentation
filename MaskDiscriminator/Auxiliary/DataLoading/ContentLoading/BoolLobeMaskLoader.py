@@ -88,8 +88,6 @@ class BoolLobeMaskLoader(ContentLoader):
 
             return np.stack(tuple(get_patch(start, length) for start, length in element_inds), axis=0)
 
-        print(sample_inds.shape)
-        print(element_inds.shape)
         return np.stack(tuple(self.loader_workers.run_func(read_one_sample, list(zip(sample_inds, element_inds)))), axis=0)
 
     def get_batch_label(self, batch_chooser: BatchChooser) -> np.ndarray:
