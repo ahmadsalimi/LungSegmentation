@@ -30,7 +30,7 @@ class BoolLobeMaskLoader(ContentLoader):
     def get_samples_labels(self):
         """ Returns list of labels of the whole samples.
         The order of the list must always be the same during one run."""
-        return self.samples.Label.values
+        return self.samples.Label.values.astype(float)
     
     def get_samples_heights(self):
         return self.samples.Height.values

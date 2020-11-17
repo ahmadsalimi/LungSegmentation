@@ -41,7 +41,7 @@ class PatchMaskDiscriminator(Model):
             nn.Sigmoid()
         )
 
-    def forward(self, x_sample: torch.Tensor, x_lable: torch.Tensor = None) -> Dict[str, torch.Tensor]:
+    def forward(self, x_sample: torch.Tensor, x_label: torch.Tensor = None) -> Dict[str, torch.Tensor]:
         # x     B   P   3   64  256 256
 
         B, P = x_sample.shape[:2]
@@ -54,10 +54,10 @@ class PatchMaskDiscriminator(Model):
         out = out.reshape(B, P)     # B     P
         out = out.amax(dim=1)       # B
 
-        if x_lable is None:
+        if x_label is None:
             return {'positive_class_probability': out}
 
-        loss = F.binary_cross_entropy(out, x_lable)
+        loss = F.binary_cross_entropy(out, x_label)
 
         return {
             'positive_class_probability': out,
