@@ -335,6 +335,8 @@ class Trainer:
                 else:
                     batch_loss = (1.0 / batch_loss.shape[0]) * torch.ones(batch_loss.shape[0], device=self.the_device)
 
+                batch_loss /= self.conf['big_batch_size']
+
                 t1 = time()
                 batch_loss.backward()
                 t2 = time()
