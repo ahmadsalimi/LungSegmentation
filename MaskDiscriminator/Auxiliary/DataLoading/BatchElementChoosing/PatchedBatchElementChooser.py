@@ -26,7 +26,7 @@ class TrainPatchedBatchElementChooser(BatchElementChooser):
         max_choice = max(1, height - self.patch_height)
         patch_starts: np.ndarray = np.random.choice(max_choice, size=self.patch_count, replace=max_choice < self.patch_count)
         heights = np.full(self.patch_count, self.patch_height)
-        return np.stack((patch_starts, height), axis=1)
+        return np.stack((patch_starts, heights), axis=1)
 
     def prepare_new_batch_element_indices(self, batch_sample_indices: np.ndarray) -> np.ndarray:
         """ Receives the sample indices for the new batch, sets up whatever needed in itself

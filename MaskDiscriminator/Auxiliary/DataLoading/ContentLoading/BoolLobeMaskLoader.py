@@ -30,7 +30,7 @@ class BoolLobeMaskLoader(ContentLoader):
     def get_samples_labels(self):
         """ Returns list of labels of the whole samples.
         The order of the list must always be the same during one run."""
-        return self.samples.Label.values
+        return self.samples.Label.values.astype(float)
     
     def get_samples_heights(self):
         return self.samples.Height.values
@@ -77,9 +77,18 @@ class BoolLobeMaskLoader(ContentLoader):
             sample = torch.tensor(np.load(filename))
             sample = F.interpolate(sample.float(), 256, mode='bilinear', align_corners=False).numpy()
 
-            return np.stack(tuple(sample[:, start:start+length] for start, length in element_inds), axis=0)
+            def get_patch(start:int, length:int):
+                patch = sample[:, start:start + length]
+                if patch.shape[1] == length:
+                    return patch
+                
+                top_pad = (length - patch.shape[1]) // 2
+                buttom_pad = length - patch.shape[1] - top_pad
+                return np.pad(patch, [(0, 0), (top_pad, buttom_pad), (0, 0), (0, 0)])
 
-        return np.stack(tuple(self.loader_workers.run_func(read_one_sample, zip(sample_inds, element_inds))), axis=0)
+            return np.stack(tuple(get_patch(start, length) for start, length in element_inds), axis=0)
+
+        return np.stack(tuple(self.loader_workers.run_func(read_one_sample, list(zip(sample_inds, element_inds)))), axis=0)
 
     def get_batch_label(self, batch_chooser: BatchChooser) -> np.ndarray:
         sample_inds: np.ndarray = batch_chooser.get_current_batch_sample_indices()
