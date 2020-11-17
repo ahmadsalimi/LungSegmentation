@@ -26,7 +26,8 @@ def run_main(conf, model):
 
     # Checking if the mode is in debug mode, seizing inputs!
     if conf['debug_mode']:
-        conf['batch_size'] = 3
+        if conf['batch_size'] > 2:
+            conf['batch_size'] = 2
         if conf['elements_per_batch'] >= 3:
             conf['elements_per_batch'] = 3
         conf['val_iters_per_epoch'] = 2
