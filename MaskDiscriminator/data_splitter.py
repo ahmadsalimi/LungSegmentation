@@ -10,8 +10,11 @@ from typing import Tuple, List
 from multiprocessing import Pool
 
 def get_height(file: str) -> int:
-    array = np.load(file)
-    return array.shape[1]
+    with open(file, 'rb') as npy:
+        print(f"reading file {file}", flush=True)
+        version = np.lib.format.read_magic(npy)
+        shape, _, _ = np.lib.format._read_array_header(npy, version)
+        return shape[1]
 
 def get_heights(files:List[str]) -> List[int]:
     pool = Pool(8)
@@ -63,8 +66,8 @@ def split_datasets(root_dir: str, train_frac: float, test_frac: float) -> pd.Dat
 
 
 if __name__ == "__main__":
-    train_frac = .5
-    test_frac = 0
+    train_frac = .7
+    test_frac = .2
 
     root_dir = 'Data'
     csv_file = 'SmallTest.csv'
