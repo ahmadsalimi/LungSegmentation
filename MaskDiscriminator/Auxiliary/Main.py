@@ -1,6 +1,7 @@
 from Auxiliary.AllClassesStats import *
 from Auxiliary.Configurations.Configs import get_save_dir, update_config_based_on_args
 from os import path, makedirs
+from contextlib import redirect_stdout
 
 
 def run_main(conf, model):
@@ -17,25 +18,28 @@ def run_main(conf, model):
     if not path.exists(conf['save_dir']):
         makedirs(conf['save_dir'])
 
-    # Printing information about the run:
-    print('@@@')
-    print('Phase: ', conf['phase'])
-    print('Load dir: ', conf['load_dir'])
-    print('Save dir: ', conf['save_dir'])
-    print('@@@')
+    with open(path.join(conf['save_dir'], "console.log"), 'w') as console:
+        with redirect_stdout(console):
 
-    # Checking if the mode is in debug mode, seizing inputs!
-    if conf['debug_mode']:
-        if conf['batch_size'] > 2:
-            conf['batch_size'] = 2
-        if conf['elements_per_batch'] >= 3:
-            conf['elements_per_batch'] = 3
-        conf['val_iters_per_epoch'] = 2
-        conf['dataSeparation'] = 'SmallTest'
-        conf['big_batch_size'] = 2
+            # Printing information about the run:
+            print('@@@')
+            print('Phase: ', conf['phase'])
+            print('Load dir: ', conf['load_dir'])
+            print('Save dir: ', conf['save_dir'])
+            print('@@@')
 
-    if type(conf['evaluator']) == str:
-        conf['evaluator'] = get_evals_dict()[conf['evaluator']]
+            # Checking if the mode is in debug mode, seizing inputs!
+            if conf['debug_mode']:
+                if conf['batch_size'] > 2:
+                    conf['batch_size'] = 2
+                if conf['elements_per_batch'] >= 3:
+                    conf['elements_per_batch'] = 3
+                conf['val_iters_per_epoch'] = 2
+                conf['dataSeparation'] = 'SmallTest'
+                conf['big_batch_size'] = 2
 
-    phase_obj = get_phases_dict()[conf['phase']](conf, model)
-    phase_obj.run()
+            if type(conf['evaluator']) == str:
+                conf['evaluator'] = get_evals_dict()[conf['evaluator']]
+
+            phase_obj = get_phases_dict()[conf['phase']](conf, model)
+            phase_obj.run()

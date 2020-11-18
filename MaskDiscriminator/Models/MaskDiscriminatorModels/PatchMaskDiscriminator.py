@@ -18,19 +18,19 @@ from Models.MaskDiscriminatorModels.models import PatchMaskDiscriminator
 def get_configs():
 
     n_conf = {
-        'debug_mode': True,
+        'debug_mode': False,
         'init_lr': 1e-4,
         'big_batch_size': 1,
-        'batch_size': 4,
-        'patch_count': 5,
+        'batch_size': 2,
+        'patch_count': 3,
         'patch_height': 64,
         'try_num': 2,
         'try_name': 'PatchBatchDiscriminator',
         'max_epochs': 100,
         'dataSeparationDir': './',
-        'dataSeparation': 'data_split_01',
-        'iters_per_epoch': 64,
-        'val_iters_per_epoch': 16,
+        'dataSeparation': 'SmallTest',
+        'iters_per_epoch': 1,
+        'val_iters_per_epoch': 1,
         'trainer': Trainer,
         'evaluator': BinaryEvaluator,
         'model_runner': ModelRunner,
@@ -51,7 +51,7 @@ def get_configs():
 
 
 if __name__ == '__main__':
-
+    
     the_conf = get_configs()
     model = PatchMaskDiscriminator(the_conf['batch_norms'])
     run_main(the_conf, model)

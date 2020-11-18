@@ -72,10 +72,10 @@ class Trainer:
             self.model_ptr.load_state_dict(checkpoint['model_state_dict'])
 
             for i in range(start_epoch):
-                print('*** Epoch %d, train loss: %.4f, %s ***' % (i, self.train_evals[i, 0], ', '.join([
+                print('*** Epoch %d, train loss: %.4e, %s ***' % (i, self.train_evals[i, 0], ', '.join([
                     '%s: %.2f' % (eval_title, eval_value) for (eval_title, eval_value) in
                     zip(self.train_evaluator.get_headers_of_evaluation_metrics(), self.train_evals[i, 1:])])))
-                print('*** Epoch %d, val loss: %.4f, %s ***' % (i, self.val_evals[i, 0], ', '.join([
+                print('*** Epoch %d, val loss: %.4e, %s ***' % (i, self.val_evals[i, 0], ', '.join([
                     '%s: %.2f' % (eval_title, eval_value) for (eval_title, eval_value) in
                     zip(self.train_evaluator.get_headers_of_evaluation_metrics(), self.val_evals[i, 1:])])))
 
@@ -124,7 +124,7 @@ class Trainer:
             # removing prev best val's model
             # if path.exists('%s/%d' % (save_dir, best_val_epoch)):
             #    remove('%s/%d' % (save_dir, best_val_epoch))
-            print('@ Changing best val epoch from %d, %.4f to %.4f' % (
+            print('@ Changing best val epoch from %d, %.4e to %.4e' % (
                 best_val_epoch, self.val_evals[best_val_epoch, 0], self.val_evals[epoch, 0]))
             best_val_epoch = epoch
 
@@ -232,11 +232,11 @@ class Trainer:
             t1 = time()
 
             # printing the stats
-            print('*** Epoch %d, train loss: %.4f, %s ***' % (epoch, self.train_evals[epoch, 0], ', '.join([
+            print('*** Epoch %d, train loss: %.4e, %s ***' % (epoch, self.train_evals[epoch, 0], ', '.join([
                 '%s: %.2f' % (eval_title, eval_value) for (eval_title, eval_value) in
                 zip(self.train_evaluator.get_headers_of_evaluation_metrics(), self.train_evals[epoch, 1:])])))
 
-            print('*** Epoch %d, val loss: %.4f, %s ***' % (epoch, self.val_evals[epoch, 0], ', '.join([
+            print('*** Epoch %d, val loss: %.4e, %s ***' % (epoch, self.val_evals[epoch, 0], ', '.join([
                 '%s: %.2f' % (eval_title, eval_value) for (eval_title, eval_value) in
                 zip(self.train_evaluator.get_headers_of_evaluation_metrics(), self.val_evals[epoch, 1:])])))
 
@@ -374,6 +374,11 @@ class Trainer:
             t2 = time()
             if self.print_time:
                 print('Zeroing grad in %.2f secs.' % (t2 - t1,))
+            
+            iter_evals = self.train_evaluator.calculate_evaluation_metrics(aggregated_eval_reqs)
+            print('*** Iter %d, loss: %.4e, %s ***' % (i, epoch_loss * iters_per_epoch / (i + 1), ', '.join([
+                    '%s: %.2f' % (eval_title, eval_value) for (eval_title, eval_value) in
+                    zip(self.train_evaluator.get_headers_of_evaluation_metrics(), iter_evals)])), flush=True)
 
         self.train_evals[epoch, :] = np.asarray([epoch_loss] +
                                                 list(self.train_evaluator.calculate_evaluation_metrics(
