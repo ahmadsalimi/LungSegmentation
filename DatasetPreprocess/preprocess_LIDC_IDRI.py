@@ -4,7 +4,7 @@ import os
 import matplotlib.pyplot as plt
 from LungDetection2 import MaskPreprocessor
 from scipy import ndimage
-from multiprocessing import Pool, Manager
+from multiprocessing import Pool
 from contextlib import redirect_stdout
 from sys import argv
 import time
@@ -38,53 +38,50 @@ def get_scans(config):
     return map(lambda scan: scan.patient_id, pl.query(pl.Scan).filter(pl.Scan.patient_id <= f"LIDC-IDRI-{config['last_id']:04d}"))
 
 def preprocess_sample(config, patient_id):
-    start_time = time.time()
+    with redirect_stdout(log_file):
+        start_time = time.time()
 
-    scan = pl.query(pl.Scan).filter(pl.Scan.patient_id == patient_id).first()
-    print(f"{patient_id}: Start preprocessing", flush=True)
+        scan = pl.query(pl.Scan).filter(pl.Scan.patient_id == patient_id).first()
+        print(f"{patient_id}: Start preprocessing", flush=True)
 
-    vol = scan.to_volume().transpose(2, 0, 1).clip(-1024, 3071)[::-1]
-    spacing = f"{scan.pixel_spacing}_{scan.pixel_spacing}_{scan.slice_thickness}"
+        vol = scan.to_volume().transpose(2, 0, 1).clip(-1024, 3071)[::-1]
+        spacing = f"{scan.pixel_spacing}_{scan.pixel_spacing}_{scan.slice_thickness}"
 
-    print(f"{patient_id}: {{shape: {vol.shape}, spacing: {spacing}}}", flush=True)
+        print(f"{patient_id}: {{shape: {vol.shape}, spacing: {spacing}}}", flush=True)
 
-    nodules_mask = get_nudules_masks(scan, vol.shape)
-    segmentor = MaskPreprocessor()
-    masks = segmentor.preprocess(vol, scan, nodules_mask)
+        nodules_mask = get_nudules_masks(scan, vol.shape)
+        segmentor = MaskPreprocessor()
+        masks = segmentor.preprocess(vol, scan, nodules_mask)
 
-    print(f"{patient_id}: lung mask created at {time.time() - start_time:.2f}s!", flush=True)
+        print(f"{patient_id}: lung mask created at {time.time() - start_time:.2f}s!", flush=True)
 
-    save_sample(config, patient_id, vol, masks, spacing)
-
-def logger(file, q):
-    while True:
-        m = q.get()
-        if m == 'end':
-            print("ended", file=file, flush=True)
-            break
-        
-        print(m, file=file, flush=True)
+        save_sample(config, patient_id, vol, masks, spacing)
 
 if __name__ == '__main__':
-    if len(argv) != 2:
-        print("Usage: python preprocess_LIDC_IDRI.py config_file")
-    else:
-        config_file = argv[1]
-        with open(config_file) as configuration:
-            exec(configuration.read())
-        
-        pool = Pool(processes)
-        
-        create_output_dirs(config)
-        
-        with redirect_stdout(log_file):
-            jobs = []
-            for patient_id in get_scans(config):
-                job = pool.apply_async(preprocess_sample, (config, patient_id))
-                jobs.append(job)
+    from sys import stdout
 
-            for job in jobs:
-                job.get()
+    log_file = open("console.log", 'w')
+    processes = 1
+    config = {
+        "last_id": 1,
+        "output_dir": "./",
+        "scans_dirname": "scans",
+        "masks_dirname": "masks",
+    }
+    
+    pool = Pool(processes)
+    
+    create_output_dirs(config)
+    
+    jobs = []
+    for patient_id in get_scans(config):
+        job = pool.apply_async(preprocess_sample, (config, patient_id))
+        jobs.append(job)
 
-        pool.close()
-        pool.join()
+    for job in jobs:
+        job.get()
+    
+    log_file.close()
+
+    pool.close()
+    pool.join()

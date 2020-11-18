@@ -15,7 +15,7 @@ from scipy import ndimage
 from sys import stderr
 from os import makedirs, path
 from multiprocessing import Pool
-import cv2
+from time import time
 
 
 pixels_rows = np.repeat(np.arange(512), 512).reshape((512, 512))
@@ -125,32 +125,76 @@ class MaskPreprocessor(object):
         centers = sorted(kmeans.cluster_centers_.flatten())
         threshold = np.mean(centers)
 
-        # minimum = pixels.min()
-        # maximum = pixels.max()
-
-        # threshold = cv2.threshold(((pixels - minimum) * 1. / (maximum - minimum) * 255).astype('uint8'), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[0] / 255. * (maximum - minimum) + minimum
-
         return threshold, mean, std
 
-    def make_lungmask(self, img, nodules_mask, threshold, mean, std, img_name, si, relative_loc):
+    def find_o_mask(self, imgs, threshold, mean, std):
+        imgs = (np.stack(tuple(imgs), axis=0)).astype(float)
+        imgs = (imgs.astype(float) - mean) / std
+        w_mask = np.where(imgs > threshold, 1.0, 0.0)
 
-        base_dir = self.output_path_base + '/' + img_name + '/InitMasks/%d.png' % si
+        # aggregating w mask!
+        w_mask = np.sum(w_mask, axis=0)
 
-        #if not path.exists(path.dirname(base_dir)):
-        #    makedirs(path.dirname(base_dir))
+        # thresholding half!
+        w_mask = np.where(w_mask > 0.5 * len(imgs), 1.0, 0.0)
 
-        img = (img.astype(float) - mean) / std
-        row_size, col_size = img.shape
-
-        # ** Finding outer mask! **
-
-        w_mask = np.where(img > threshold, 1.0, 0.0)
+        # one unique body!
         labels = measure.label(w_mask)
         # the label having the max area in the labels is the lung peripheral
         ulabels = np.unique(labels)
         ulabels = ulabels[ulabels != 0]
         labels_areas = np.asarray([np.sum(labels == ulabel) for ulabel in ulabels])
         w_mask = (labels == ulabels[np.argmax(labels_areas)]).astype(int)
+
+        def find_range(arr):
+            on_inds = np.arange(len(arr))[arr > 0]
+            if len(on_inds) == 0:
+                return -1, -1
+            else:
+                return on_inds[0], on_inds[-1]
+
+        find_col_range = np.vectorize(lambda ci: find_range(w_mask[:, ci]))
+        find_row_range = np.vectorize(lambda ri: find_range(w_mask[ri, :]))
+
+        col_starts, col_ends = find_col_range(np.arange(w_mask.shape[1]))
+        row_starts, row_ends = find_row_range(np.arange(w_mask.shape[0]))
+
+        o_mask = \
+            (col_starts[pixels_cols] == -1) | \
+            (row_starts[pixels_rows] == -1) | \
+            (pixels_rows < col_starts[pixels_cols]) | \
+            (pixels_rows > col_ends[pixels_cols]) | \
+            (pixels_cols < row_starts[pixels_rows]) | \
+            (pixels_cols > row_ends[pixels_rows])
+
+        o_mask = o_mask.astype(int)
+
+        return w_mask, o_mask
+
+    def make_lungmask(self,
+                      m_img, m_threshold, m_mean, m_std,
+                      n_img, n_threshold, n_mean, n_std,
+                      nodules_mask, img_name, si, relative_loc, g_w_mask, g_o_mask):
+
+        base_dir = self.output_path_base + '/' + img_name + '/InitMasks/%d.png' % si
+
+
+        row_size, col_size = m_img.shape
+
+        # ** Finding outer mask! **
+
+        w_mask = np.where(
+            ((m_img.astype(float) - m_mean) / m_std >= m_threshold) |
+            ((n_img.astype(float) - n_mean) / n_std >= n_threshold), 1.0, 0.0)
+        w_mask = w_mask * g_w_mask
+
+        labels = measure.label(w_mask)
+        # the label having the max area in the labels is the lung peripheral
+        ulabels = np.unique(labels)
+        ulabels = ulabels[ulabels != 0]
+        labels_areas = np.asarray([np.sum(labels == ulabel) for ulabel in ulabels])
+        w_mask = (labels == ulabels[np.argmax(labels_areas)]).astype(int)
+
         white_zone_bb = self.find_bounding_box(w_mask, 1)
         white_middle_row = 0.5 * (white_zone_bb[0] + white_zone_bb[2])
         white_middle_col = 0.5 * (white_zone_bb[1] + white_zone_bb[3])
@@ -192,8 +236,10 @@ class MaskPreprocessor(object):
         bnd[:, -3:] = True
 
         thresh_img = np.where(
-            (img < threshold) & np.logical_not(bnd), 1.0, 0.0)  # threshold the image
-        thresh_img[nodules_mask] = 1.0
+            (((m_img.astype(float) - m_mean) / m_std < m_threshold) &
+             ((n_img.astype(float) - n_mean) / n_std < n_threshold)) &
+            np.logical_not(bnd), 1.0, 0.0)  # threshold the image
+        thresh_img[nodules_mask] = 1.0      # add nodule mask
         eroded = morphology.erosion(thresh_img, np.ones([3, 3]))
         dilation = morphology.dilation(eroded, np.ones([8, 8]))
         dilation = morphology.erosion(dilation, np.ones([5, 5]))
@@ -240,16 +286,19 @@ class MaskPreprocessor(object):
                 continue
 
             obj_mask = labels == prop.label
+
+            if prop.area <= 100:
+                labels[obj_mask] = 0
+
             if np.any(o_mask & obj_mask):
                 labels[obj_mask] = 0
                 continue
 
             # if relative location is in the top 25% and the object only locates in the middle and is circle
-            if relative_loc <= 0.75 and \
-                    prop.bbox[1] >= white_middle_row - 30 and \
-                    prop.bbox[3] <= white_middle_row + 30 and \
-                    1.0 * (prop.bbox[3] - prop.bbox[1]) / (prop.bbox[2] - prop.bbox[0]) <= 1.25 and \
-                    1.0 * (prop.bbox[2] - prop.bbox[0]) / (prop.bbox[3] - prop.bbox[1]) <= 1.25:
+            if relative_loc <= 0.75 and prop.area <= 1000 and \
+                    abs(0.5 * (prop.bbox[1] + prop.bbox[3]) - white_middle_col) <= 30 and \
+                    1.0 * (prop.bbox[3] - prop.bbox[1]) / (prop.bbox[2] - prop.bbox[0]) <= 2 and \
+                    1.0 * (prop.bbox[2] - prop.bbox[0]) / (prop.bbox[3] - prop.bbox[1]) <= 2:
                 labels[obj_mask] = 0
                 continue
 
@@ -991,12 +1040,17 @@ class MaskPreprocessor(object):
         thrs = self.infection_thr(norm_images)
         # print("Threshold in " + name + " is : " + str(thrs))
         masks = []
-        white_threshold, w_mean, w_std = self.find_white_threshold(mediastanial_images)
+        white_threshold1, w_mean1, w_std1 = self.find_white_threshold(mediastanial_images)
+        white_threshold2, w_mean2, w_std2 = self.find_white_threshold(norm_images)
+
+        g_w_mask, g_o_mask = self.find_o_mask(mediastanial_images, white_threshold1, w_mean1, w_std1)
 
         for ind in range(len(norm_images)):
             try:
-                mask = self.make_lungmask(mediastanial_images[ind], nodules_mask[ind], white_threshold,
-                                          w_mean, w_std, name, ind, 1.0 * ind / len(norm_images))
+                mask = self.make_lungmask(
+                    mediastanial_images[ind], white_threshold1, w_mean1, w_std1,
+                    norm_images[ind], white_threshold2, w_mean2, w_std2, nodules_mask[ind],
+                    name, ind, 1.0 * ind / len(norm_images), g_w_mask, g_o_mask)
 
                 mask = self.continues_detection(mask)
                 #self.filter_objs_with_thickness_limit(mask)
@@ -1026,11 +1080,9 @@ class MaskPreprocessor(object):
                 infection_mask = self.infection_detection(norm_img, thrs, mask)
 
                 #self.filter_uncommon_objects(mask, consensus_mask)
-                self.filter_objs_with_thickness_limit(mask)
+                # self.filter_objs_with_thickness_limit(mask)
                 if np.amax(mask) == 0:
                     continue
-
-                #print('>>> Index ', ind)
 
                 left_ids, right_ids = self.get_left_and_right_object(mask, middle_column, ind,
                                                                      self.output_path_base + '/' + name)
@@ -1127,7 +1179,7 @@ class MaskPreprocessor(object):
         return view_slices
 
     def preprocess(self, all_slices, scan, nodules_mask):
-        print("Total of %d Ground Glass DICOM images." % len(all_slices))
+        print("Total of %d Ground Glass DICOM images." % len(all_slices), flush=True)
         if len(all_slices) <= 1:
             return
 
@@ -1203,13 +1255,3 @@ def discover_samples(samples_dir):
 
     print('Total samples: ', total_data_count)
     return samples
-
-
-if __name__ == '__main__':
-
-    samples_dirs = discover_samples(argv[1])
-    preprocess_object = preprocess_mask(argv[2], savePng=True)
-
-    for sample_dir in samples_dirs:
-        preprocess_object.preprocess(sample_dir)
-
