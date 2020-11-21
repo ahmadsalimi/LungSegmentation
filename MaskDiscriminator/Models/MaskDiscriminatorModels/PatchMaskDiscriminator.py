@@ -41,7 +41,8 @@ def get_configs():
         'LabelMapDict': {True: 1, False: 0},
         'batch_norms': (
             False, True, True, True, False, False, False, False
-        )
+        ),
+        'console_file': 'eval_console.log'
     }
 
     m_conf = get_shared_config()
