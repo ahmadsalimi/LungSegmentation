@@ -11,7 +11,7 @@ from Auxiliary.ModelRunning.ModelRunner import ModelRunner
 from Auxiliary.DataLoading.BatchChoosing.SequentialBatchChooser import SequentialBatchChooser
 from Auxiliary.DataLoading.ContentLoading.BoolLobeMaskLoader import BoolLobeMaskLoader
 from Auxiliary.DataLoading.BatchChoosing.RandomBatchChooser import RandomBatchChooser
-from Auxiliary.DataLoading.BatchElementChoosing.PatchedBatchElementChooser import TrainPatchedBatchElementChooser
+from Auxiliary.DataLoading.BatchElementChoosing.PatchedBatchElementChooser import TrainPatchedBatchElementChooser, TestPatchedBatchElementChooser
 from Models.MaskDiscriminatorModels.models import PatchMaskDiscriminator
 
 
@@ -37,7 +37,7 @@ def get_configs():
         'content_loaders': [(BoolLobeMaskLoader, {'prefix_name': 'x'})],
         'train_sampler': (RandomBatchChooser, TrainPatchedBatchElementChooser),
         'val_sampler': (RandomBatchChooser, TrainPatchedBatchElementChooser),
-        'test_sampler': (SequentialBatchChooser, TrainPatchedBatchElementChooser),
+        'test_sampler': (SequentialBatchChooser, TestPatchedBatchElementChooser),
         'LabelMapDict': {True: 1, False: 0},
         'batch_norms': (
             False, True, True, True, False, False, False, False
