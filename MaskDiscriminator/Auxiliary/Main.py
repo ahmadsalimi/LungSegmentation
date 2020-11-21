@@ -18,7 +18,7 @@ def run_main(conf, model):
     if not path.exists(conf['save_dir']):
         makedirs(conf['save_dir'])
 
-    with open(path.join(conf['save_dir'], "console.log"), 'w') as console:
+    with open(path.join(conf['save_dir'], conf['console_file']), 'w') as console:
         with redirect_stdout(console):
 
             # Printing information about the run:

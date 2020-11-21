@@ -22,13 +22,13 @@ def get_configs():
         'init_lr': 1e-4,
         'big_batch_size': 8,
         'batch_size': 1,
-        'try_num': 1,
+        'try_num': 2,
         'try_name': 'WholeBatchDiscriminator',
         'max_epochs': 100,
-        'dataSeparationDir': './',
-        'dataSeparation': 'SmallTest',
-        'iters_per_epoch': 2,
-        'val_iters_per_epoch': 2,
+        'dataSeparationDir': '../',
+        'dataSeparation': 'data_split_01',
+        'iters_per_epoch': 32,
+        'val_iters_per_epoch': 64,
         'trainer': Trainer,
         'evaluator': BinaryEvaluator,
         'model_runner': ModelRunner,
@@ -39,7 +39,8 @@ def get_configs():
         'LabelMapDict': {True: 1, False: 0},
         'batch_norms': (
             False, True, True, True, False, False, False, False
-        )
+        ),
+        'console_file': 'eval_console.log'
     }
 
     m_conf = get_shared_config()

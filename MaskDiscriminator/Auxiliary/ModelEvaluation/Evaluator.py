@@ -114,7 +114,7 @@ class Evaluator:
             if self.conf['turn_on_val_mode']:
                 self.model.eval()
                 if self.conf['phase'] != 'train':
-                    print('On the eval mode')
+                    print('On the eval mode', flush=True)
 
             # checking if data should be summarized or saved for final evaluation
             summarize_each_data_part = self.summarize_for_evaluation_in_each_iteration()
@@ -182,11 +182,11 @@ class Evaluator:
                 if total_loss != 0:
                     print('%s: loss: %.4f, %s' % (title, total_loss, ', '.join([
                         '%s: %.2f' % (eval_title, eval_value) for (eval_title, eval_value) in
-                        zip(self.get_headers_of_evaluation_metrics(), eval_metrics)])))
+                        zip(self.get_headers_of_evaluation_metrics(), eval_metrics)])), flush=True)
                 else:
                     print('%s: %s' % (title, ', '.join([
                         '%s: %.2f' % (eval_title, eval_value) for (eval_title, eval_value) in
-                        zip(self.get_headers_of_evaluation_metrics(), eval_metrics)])))
+                        zip(self.get_headers_of_evaluation_metrics(), eval_metrics)])), flush=True)
 
         return eval_metrics, total_loss
 
@@ -240,7 +240,7 @@ class Evaluator:
             # Running the model in evaluation mode
             if self.conf['turn_on_val_mode']:
                 self.model.eval()
-                print('On the eval mode')
+                print('On the eval mode', flush=True)
 
             # initiating variables for running evaluations
             self.reset()
@@ -292,7 +292,7 @@ class Evaluator:
             # Running the model in evaluation mode
             if self.conf['turn_on_val_mode']:
                 self.model.eval()
-                print('On the eval mode')
+                print('On the eval mode', flush=True)
 
             # initiating variables for running evaluations
             self.reset()
@@ -344,7 +344,7 @@ class Evaluator:
             # Running the model in evaluation mode
             if self.conf['turn_on_val_mode']:
                 self.model.eval()
-                print('On the eval mode')
+                print('On the eval mode', flush=True)
 
             # initiating variables for running evaluations
             self.reset()

@@ -170,7 +170,7 @@ class PatchMaskDiscriminator(Model):
         out = out.reshape(-1, 512)  # B*P   512
         out = self.decider(out)     # B*P   1
         out = out.reshape(B, P)     # B     P
-        out = out.amax(dim=1)       # B
+        out = out.max(dim=1)[0]     # B
 
         if x_label is None:
             return {'positive_class_probability': out}

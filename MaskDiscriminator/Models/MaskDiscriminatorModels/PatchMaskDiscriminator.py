@@ -20,17 +20,17 @@ def get_configs():
     n_conf = {
         'debug_mode': False,
         'init_lr': 1e-4,
-        'big_batch_size': 1,
+        'big_batch_size': 4,
         'batch_size': 2,
         'patch_count': 3,
         'patch_height': 64,
-        'try_num': 2,
+        'try_num': 5,
         'try_name': 'PatchBatchDiscriminator',
         'max_epochs': 100,
-        'dataSeparationDir': './',
-        'dataSeparation': 'SmallTest',
-        'iters_per_epoch': 1,
-        'val_iters_per_epoch': 1,
+        'dataSeparationDir': '../',
+        'dataSeparation': 'data_split_01',
+        'iters_per_epoch': 32,
+        'val_iters_per_epoch': 32,
         'trainer': Trainer,
         'evaluator': BinaryEvaluator,
         'model_runner': ModelRunner,
@@ -51,7 +51,7 @@ def get_configs():
 
 
 if __name__ == '__main__':
-    
+
     the_conf = get_configs()
     model = PatchMaskDiscriminator(the_conf['batch_norms'])
     run_main(the_conf, model)
