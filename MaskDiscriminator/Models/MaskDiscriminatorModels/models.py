@@ -153,6 +153,9 @@ class AttentionMaskDiscriminator(Model):
             ResidualBlock((128, 256, 512), kernel_size, stride, down_sample_kernel_size, down_sample_stride, padding=padding, batch_norms=batch_norms[6:]),     # 1 512 H   1   1
         )
 
+        for param in self.conv.parameters():
+            param.requires_grad = False
+
         self.attention = nn.Sequential(                     # H 512
             nn.Linear(512, 256),                            # H 256
             nn.LeakyReLU(0.2),
@@ -180,7 +183,8 @@ class AttentionMaskDiscriminator(Model):
         # x_label   1
 
         x = x_sample.squeeze(1)             # 1 3   H   256 256
-        x = self.conv(x)                    # 1 512 H   1   1
+        with torch.no_grad():
+            x = self.conv(x)                # 1 512 H   1   1
         x = x.squeeze(-1).squeeze(-1)       # 1 512 H
         x = x.permute(2, 1, 0).flatten(1)   # H 512
 
