@@ -41,6 +41,7 @@ def get_shared_config():
         'augment': False,
         'track_preds_on_data': False,
         'turn_on_val_mode': True,
+        'pretrained_model_file': None,
     }
 
     args = define_arg_parser().parse_args()

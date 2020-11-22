@@ -190,7 +190,10 @@ class Trainer:
             best_val_epoch = 0
 
         if start_epoch == 0:
-            self.model_ptr.init_weights_from_other_model()
+            if self.conf["pretrained_model_file"] is not None:
+                self.model_ptr.init_weights_from_other_model(self.conf["pretrained_model_file"])
+            else:
+                self.model_ptr.init_weights_from_other_model()
 
         return iters_per_epoch, training_epochs, best_val_epoch, start_epoch
 

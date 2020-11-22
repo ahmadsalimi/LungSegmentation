@@ -79,6 +79,11 @@ def define_arg_parser():
                         help='Whether use augmentation in training/evaluation!',
                         metavar='augment')
 
+    parser.add_argument('-pretrained_model_file', dest='pretrained_model_file',
+                        default=None, type=str,
+                        help='Address of .pt pretrained model',
+                        metavar='pretrained_model_file')
+
     return parser
 
 

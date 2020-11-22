@@ -140,6 +140,8 @@ class AttentionMaskDiscriminator(Model):
     def __init__(self, batch_norms: Tuple[bool, bool, bool, bool, bool, bool, bool, bool]):
         super().__init__()
 
+        self.batch_norms = batch_norms
+
         kernel_size = (3, 2, 2)
         stride = (1, 2, 2)
         down_sample_kernel_size = (3, 4, 4)
@@ -204,6 +206,11 @@ class AttentionMaskDiscriminator(Model):
             'positive_class_probability': out,
             'loss': loss
         }
+
+    def get_other_model_to_load_from(self):
+        """ Returns the model from which we are going to load the parameters for initialization.
+        Default is the same model as we are using. """
+        return WholeMaskDiscriminator(self.batch_norms)
 
 
 class PatchMaskDiscriminator(Model):

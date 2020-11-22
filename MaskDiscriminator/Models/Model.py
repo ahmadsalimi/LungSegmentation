@@ -13,15 +13,17 @@ class Model(torch.nn.Module):
         The model to load is received via the function get_other_model_to_load_from.
         The default value is the same model!"""
 
+        print(f"Initializing model from {pretrained_model_dir}", flush=True)
+
         if pretrained_model_dir is None:
-            print('The model was not preinitialized.')
+            print('The model was not preinitialized.', flush=True)
             return
 
         other_model = self.get_other_model_to_load_from()
 
         if other_model == self:
             self.load_state_dict(torch.load(pretrained_model_dir))
-            print('The whole state dictionary loaded successfully.')
+            print('The whole state dictionary loaded successfully.', flush=True)
             return
 
         cnt = 0
@@ -42,7 +44,7 @@ class Model(torch.nn.Module):
                 own_state[name].copy_(param)
                 cnt += 1
 
-        print('%d parameters loaded successfully' % cnt)
+        print('%d parameters loaded successfully' % cnt, flush=True)
 
     def get_other_model_to_load_from(self):
         """ Returns the model from which we are going to load the parameters for initialization.
