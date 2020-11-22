@@ -40,7 +40,7 @@ def get_configs():
         'batch_norms': (
             False, True, True, True, False, False, False, False
         ),
-        'console_file': 'eval_console.log'
+        'console_file': 'console.log'
     }
 
     m_conf = get_shared_config()
