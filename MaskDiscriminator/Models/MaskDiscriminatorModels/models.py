@@ -85,44 +85,111 @@ class WholeMaskDiscriminator(Model):
         down_sample_stride = (1, 4, 4)
         padding = (1, 0, 0)
 
-        self.conv = nn.Sequential(                                                                                                                              # B 3   H   256 256
-            ResidualBlock((3, 4, 8), kernel_size, stride, down_sample_kernel_size, down_sample_stride, padding=padding, batch_norms=batch_norms[:2]),           # B 8   H   64  64
-            ResidualBlock((8, 16, 32), kernel_size, stride, down_sample_kernel_size, down_sample_stride, padding=padding, batch_norms=batch_norms[2:4]),        # B 32  H   16  16
-            ResidualBlock((32, 64, 128), kernel_size, stride, down_sample_kernel_size, down_sample_stride, padding=padding, batch_norms=batch_norms[4:6]),      # B 128 H   4   4
-            ResidualBlock((128, 256, 512), kernel_size, stride, down_sample_kernel_size, down_sample_stride, padding=padding, batch_norms=batch_norms[6:]),     # B 512 H   1   1
+        self.conv = nn.Sequential(                                                                                                                              # 1 3   H   256 256
+            ResidualBlock((3, 4, 8), kernel_size, stride, down_sample_kernel_size, down_sample_stride, padding=padding, batch_norms=batch_norms[:2]),           # 1 8   H   64  64
+            ResidualBlock((8, 16, 32), kernel_size, stride, down_sample_kernel_size, down_sample_stride, padding=padding, batch_norms=batch_norms[2:4]),        # 1 32  H   16  16
+            ResidualBlock((32, 64, 128), kernel_size, stride, down_sample_kernel_size, down_sample_stride, padding=padding, batch_norms=batch_norms[4:6]),      # 1 128 H   4   4
+            ResidualBlock((128, 256, 512), kernel_size, stride, down_sample_kernel_size, down_sample_stride, padding=padding, batch_norms=batch_norms[6:]),     # 1 512 H   1   1
         )
 
         # H B   512
-        self.lstm = nn.LSTM(512, 256)                       # 1 B   256 + 1 B   256 =>  B   512
+        self.lstm = nn.LSTM(512, 256)                       # 1 1   256 + 1 1   256 =>  1   512
 
-        self.decider = nn.Sequential(                       # B 512
-            nn.Linear(512, 256),                            # B 256
+        self.decider = nn.Sequential(                       # 1 512
+            nn.Linear(512, 256),                            # 1 256
             nn.LeakyReLU(0.2),
             nn.Dropout(0.5, inplace=True),
-            nn.Linear(256, 128),                            # B 128
+            nn.Linear(256, 128),                            # 1 128
             nn.LeakyReLU(0.2),
             nn.Dropout(0.5, inplace=True),
-            nn.Linear(128, 1),                              # B 1
+            nn.Linear(128, 1),                              # 1 1
             nn.Sigmoid()
         )
     
     def forward(self, x_sample: torch.Tensor, x_label: torch.Tensor = None) -> Dict[str, torch.Tensor]:
-        # x_sample  B   1   3   H  256 256
-        # x_label   B
+        # x_sample  1   1   3   H  256 256
+        # x_label   1
 
-        x = x_sample.squeeze(1)         # B 3   H   256 256
-        x = self.conv(x)                # B 512 H   1   1
-        x = x.squeeze(-1).squeeze(-1)   # B 512 H
-        x = x.permute(2, 0, 1)          # H B   512
-        hs, (h, c) = self.lstm(x)       # 1 B   256 + 1 B   256
+        x = x_sample.squeeze(1)         # 1 3   H   256 256
+        x = self.conv(x)                # 1 512 H   1   1
+        x = x.squeeze(-1).squeeze(-1)   # 1 512 H
+        x = x.permute(2, 0, 1)          # H 1   512
+        hs, (h, c) = self.lstm(x)       # 1 1   256 + 1 1   256
 
         h = h + hs.mean(dim=0).unsqueeze(0)
 
-        out = torch.cat((h, c), dim=2)  # 1 B   512
-        out = out.permute(1, 0, 2)      # B 1   512
-        out = out.reshape(-1, 512)      # B 512
-        out = self.decider(out)         # B 1
-        out = out.flatten()             # B
+        out = torch.cat((h, c), dim=2)  # 1 1   512
+        out = out.permute(1, 0, 2)      # 1 1   512
+        out = out.reshape(-1, 512)      # 1 512
+        out = self.decider(out)         # 1 1
+        out = out.flatten()             # 1
+
+        if x_label is None:
+            return {'positive_class_probability': out}
+        
+        loss = F.binary_cross_entropy(out, x_label)
+
+        return {
+            'positive_class_probability': out,
+            'loss': loss
+        }
+    
+
+class AttentionMaskDiscriminator(Model):
+
+    def __init__(self, batch_norms: Tuple[bool, bool, bool, bool, bool, bool, bool, bool]):
+        super().__init__()
+
+        kernel_size = (3, 2, 2)
+        stride = (1, 2, 2)
+        down_sample_kernel_size = (3, 4, 4)
+        down_sample_stride = (1, 4, 4)
+        padding = (1, 0, 0)
+
+        self.conv = nn.Sequential(                                                                                                                              # 1 3   H   256 256
+            ResidualBlock((3, 4, 8), kernel_size, stride, down_sample_kernel_size, down_sample_stride, padding=padding, batch_norms=batch_norms[:2]),           # 1 8   H   64  64
+            ResidualBlock((8, 16, 32), kernel_size, stride, down_sample_kernel_size, down_sample_stride, padding=padding, batch_norms=batch_norms[2:4]),        # 1 32  H   16  16
+            ResidualBlock((32, 64, 128), kernel_size, stride, down_sample_kernel_size, down_sample_stride, padding=padding, batch_norms=batch_norms[4:6]),      # 1 128 H   4   4
+            ResidualBlock((128, 256, 512), kernel_size, stride, down_sample_kernel_size, down_sample_stride, padding=padding, batch_norms=batch_norms[6:]),     # 1 512 H   1   1
+        )
+
+        self.attention = nn.Sequential(                     # H 512
+            nn.Linear(512, 256),                            # H 256
+            nn.LeakyReLU(0.2),
+            nn.Dropout(0.5, inplace=True),
+            nn.Linear(256, 128),                            # H 128
+            nn.LeakyReLU(0.2),
+            nn.Dropout(0.5, inplace=True),
+            nn.Linear(128, 1),                              # H 1
+            nn.Softmax(dim=0)
+        )
+
+        self.decider = nn.Sequential(                       # 1 512
+            nn.Linear(512, 256),                            # 1 256
+            nn.LeakyReLU(0.2),
+            nn.Dropout(0.5, inplace=True),
+            nn.Linear(256, 128),                            # 1 128
+            nn.LeakyReLU(0.2),
+            nn.Dropout(0.5, inplace=True),
+            nn.Linear(128, 1),                              # 1 1
+            nn.Sigmoid()
+        )
+    
+    def forward(self, x_sample: torch.Tensor, x_label: torch.Tensor = None) -> Dict[str, torch.Tensor]:
+        # x_sample  1   1   3   H  256 256
+        # x_label   1
+
+        x = x_sample.squeeze(1)             # 1 3   H   256 256
+        x = self.conv(x)                    # 1 512 H   1   1
+        x = x.squeeze(-1).squeeze(-1)       # 1 512 H
+        x = x.permute(2, 1, 0).flatten(1)   # H 512
+
+        w = self.attention(x)               # H 1
+        
+        a = w.T.matmul(x)                   # 1 512
+
+        out = self.decider(a)               # 1 1
+        out = out.flatten()                 # 1
 
         if x_label is None:
             return {'positive_class_probability': out}
