@@ -1,5 +1,0 @@
-Group,Path,Label,Height
-val,Data/TRC/0/5_1.25.npy,False,26
-train,Data/TRC/0/72_1.25.npy,False,7
-val,Data/Baghiat/1/++/8_1.25.npy,True,12
-train,Data/Baghiat/1/++/9_1.25.npy,True,14
